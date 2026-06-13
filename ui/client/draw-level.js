@@ -27,12 +27,15 @@ const PALETTE = [
   { id: 5, label: "Item 2", color: "#e0635f" },
   { id: 6, label: "Item 3", color: "#e069b4" },
   { id: 7, label: "Item 4", color: "#45c8c0" },
+  { id: -1, label: "Number", color: "#e8e8e8" },
   { id: 0, label: "Erase", color: "" },
 ];
 
 /** Tile codes, row-major (width = GRID_W). @type {Uint8Array} */
 const cells = new Uint8Array(GRID_W * GRID_H);
-let brush = 1; // active tile id (default: Wall)
+/** Numbered markers: cell indices in placement order (shown number = index + 1). @type {number[]} */
+const labels = [];
+let brush = 1; // active tile id (-1 = number/marker mode; default: Wall)
 let painting = false;
 let lastX = -1;
 let lastY = -1;
@@ -110,6 +113,19 @@ function render() {
   for (let j = 0; j <= GRID_H; j += MAJOR) {
     ctx.fillText(String(j), RULER * 0.5, RULER + j * CELL_PX);
   }
+
+  // numbered markers, drawn on top of the tiles (white text, dark outline)
+  ctx.font = "bold 11px ui-monospace, monospace";
+  ctx.lineWidth = 3;
+  labels.forEach((idx, i) => {
+    const cx = RULER + (idx % GRID_W) * CELL_PX + CELL_PX / 2;
+    const cy = RULER + Math.floor(idx / GRID_W) * CELL_PX + CELL_PX / 2;
+    const t = String(i + 1);
+    ctx.strokeStyle = "rgba(0,0,0,0.75)";
+    ctx.strokeText(t, cx, cy);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(t, cx, cy);
+  });
 }
 
 /** @param {number} x @param {number} y @param {number} v */
@@ -143,16 +159,24 @@ function paintLine(x0, y0, x1, y1, v) {
   }
 }
 
-/** Paint the active brush (or erase, on right-button) under a pointer event.
- * @param {PointerEvent} e */
-function paintAt(e) {
+/** Grid cell under a pointer event, or {x:-1} if outside the grid.
+ * @param {PointerEvent} e @returns {{ x: number, y: number }} */
+function cellAt(e) {
   const canvas = canvasEl();
   const rect = canvas.getBoundingClientRect();
   const px = ((e.clientX - rect.left) / rect.width) * canvas.width;
   const py = ((e.clientY - rect.top) / rect.height) * canvas.height;
   const x = Math.floor((px - RULER) / CELL_PX);
   const y = Math.floor((py - RULER) / CELL_PX);
-  if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) {
+  if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return { x: -1, y: -1 };
+  return { x, y };
+}
+
+/** Paint the active tile brush (or erase, on right-button) under a pointer event.
+ * @param {PointerEvent} e */
+function paintAt(e) {
+  const { x, y } = cellAt(e);
+  if (x < 0) {
     lastX = -1;
     lastY = -1;
     return;
@@ -162,6 +186,21 @@ function paintAt(e) {
   else setCell(x, y, v);
   lastX = x;
   lastY = y;
+  render();
+}
+
+/** Number mode: left-click tags a cell with the next number; right-click removes it.
+ * @param {PointerEvent} e */
+function stampNumber(e) {
+  const { x, y } = cellAt(e);
+  if (x < 0) return;
+  const idx = y * GRID_W + x;
+  const at = labels.indexOf(idx);
+  if ((e.buttons & 2) !== 0) {
+    if (at >= 0) labels.splice(at, 1);
+  } else if (at < 0) {
+    labels.push(idx);
+  }
   render();
 }
 
@@ -219,11 +258,17 @@ async function exportLevel() {
     else if (c === 7) nI4++;
   }
   const nItems = nI1 + nI2 + nI3 + nI4;
-  if (nWall + nDoor + nWindow + nItems === 0) {
-    err.textContent = "Paint at least one tile first.";
+  if (nWall + nDoor + nWindow + nItems === 0 && labels.length === 0) {
+    err.textContent = "Paint at least one tile or number first.";
     return;
   }
-  const grid = { width: GRID_W, height: GRID_H, cell_size: CELL_SIZE, cells: Array.from(cells) };
+  const grid = {
+    width: GRID_W,
+    height: GRID_H,
+    cell_size: CELL_SIZE,
+    cells: Array.from(cells),
+    labels: labels.map((idx, i) => ({ n: i + 1, x: idx % GRID_W, y: Math.floor(idx / GRID_W) })),
+  };
   /** @type {{ path?: string, error?: string }} */
   let data;
   try {
@@ -240,18 +285,16 @@ async function exportLevel() {
   }
   close();
   void loadState();
-  const summary = `${nWall} wall, ${nDoor} door, ${nWindow} window, ${nItems} item${nItems === 1 ? "" : "s"} (types ${nI1}/${nI2}/${nI3}/${nI4})`;
+  const summary = `${nWall} wall, ${nDoor} door, ${nWindow} window, ${nItems} item${nItems === 1 ? "" : "s"} (types ${nI1}/${nI2}/${nI3}/${nI4}), ${labels.length} numbered marker${labels.length === 1 ? "" : "s"}`;
   const prompt =
     `I drew a level (${summary}) and saved the grid to ${data.path} ` +
-    `(${GRID_W}×${GRID_H}; tile codes 0 floor, 1 wall, 2 door, 3 window, and 4/5/6/7 = four distinct ` +
-    `item types by colour). ` +
+    `(${GRID_W}×${GRID_H}; tile codes 0 floor, 1 wall, 2 door, 3 window, 4/5/6/7 = four item types by colour; ` +
+    `plus a "labels" list of numbered markers {n,x,y} that identify specific cells). ` +
     `Dispatch the level-designer agent: have it read the grid, ask me what the level is ABOUT (the concept) ` +
-    `first, then the name and scene details (metres per cell, wall height, what door/window/each item type ` +
-    `become, player spawn, theme), write a ` +
-    `brief to design/levels/<name>.md, then hand off to godot-dev to build a NAMED level scene ` +
-    `levels/<name>.tscn (root node named after it) using the reusable guided-level builder ` +
-    `(levels/guided_level.gd) — not a generic "dynamic" level — reading the grid, merging contiguous wall ` +
-    `runs, registered in main.gd, then verify with godot-verify. If level-designer isn't available, dispatch godot-dev directly.`;
+    `first, then the name, scene details (metres per cell, wall height, what door/window/each item type and each ` +
+    `numbered marker become, player spawn, theme); it writes a brief to design/levels/<name>.md and ALWAYS hands ` +
+    `off to the game-designer agent, which folds it into a design doc and dispatches godot-dev to build the NAMED ` +
+    `guided level (levels/<name>.tscn via levels/guided_level.gd, merge wall runs, register in main.gd) and verify with godot-verify.`;
   addUser(prompt);
   send({ type: "user_input", text: prompt });
 }
@@ -267,6 +310,7 @@ export function initDrawLevel() {
   if (clearBtn)
     clearBtn.onclick = () => {
       cells.fill(0);
+      labels.length = 0;
       render();
     };
 
@@ -277,10 +321,14 @@ export function initDrawLevel() {
     canvas.width = RULER + GRID_W * CELL_PX + PAD;
     canvas.height = RULER + GRID_H * CELL_PX + PAD;
     canvas.addEventListener("pointerdown", (e) => {
+      canvas.setPointerCapture(e.pointerId);
+      if (brush === -1) {
+        stampNumber(e);
+        return;
+      }
       painting = true;
       lastX = -1;
       lastY = -1;
-      canvas.setPointerCapture(e.pointerId);
       paintAt(e);
     });
     canvas.addEventListener("pointermove", (e) => {
