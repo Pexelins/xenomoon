@@ -5,7 +5,7 @@
 import { $, $input } from "./dom.js";
 import { parseJSON } from "../lib/json.js";
 import { resumeId } from "./state.js";
-import { addUser, addAgentMsg, addBanner } from "./chat.js";
+import { addUser, addAgentMsg, addBanner, updateThinking, clearThinking } from "./chat.js";
 import { addLog, VERB_KIND, toolDetail } from "./activity-log.js";
 import { renderTodos } from "./todos.js";
 import { renderAsk, renderPermission } from "./approvals.js";
@@ -39,6 +39,7 @@ ws.onclose = () => {
   $("model-name").textContent = "disconnected";
   $("session-dot").classList.remove("pulse");
   $("session-meta").textContent = "ended — refresh for a new session";
+  clearThinking();
 };
 
 /** @param {Extract<ServerMsg, { type: "history" }>} m */
@@ -63,12 +64,14 @@ function handleToolUse(b, who) {
   if (b.name === "Task" || b.name === "Agent") {
     const label = b.input?.subagent_type ?? "agent";
     if (b.id) subagents.set(b.id, label);
+    updateThinking("Spawn", b.input?.description ?? label);
     addLog({ kind: "spawn", agent: who, child: label, detail: b.input?.description ?? "" });
     showRunning(label, b.input?.description ?? "");
   } else if (b.name === "TodoWrite" && Array.isArray(b.input?.todos)) {
     renderTodos(b.input?.todos ?? []);
   } else {
-    const verb = b.name === "mcp__ui__form" ? "Form" : b.name;
+    const verb = b.name === "mcp__ui__form" ? "Form" : (b.name ?? "tool");
+    updateThinking(verb, toolDetail(b.input));
     addLog({
       kind: VERB_KIND[b.name ?? ""] ?? "task",
       verb,
@@ -98,6 +101,7 @@ function handleAssistant(msg) {
 
 /** @param {SdkEvent} msg */
 function handleResult(msg) {
+  clearThinking();
   hideRunning();
   totalCost += msg.total_cost_usd ?? 0;
   const u = msg.usage ?? {};

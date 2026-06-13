@@ -36,3 +36,14 @@ export function fillComposer(text) {
   t.style.height = Math.min(t.scrollHeight, 120) + "px";
   t.focus();
 }
+
+/** Append a reference to the composer (e.g. @design/file.md) without
+ * clobbering existing text. Focuses the composer after appending.
+ * @param {string} text */
+export function appendToComposer(text) {
+  const t = $input("composer-input");
+  t.value = t.value ? `${t.value} ${text}` : text;
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 120) + "px";
+  t.focus();
+}
