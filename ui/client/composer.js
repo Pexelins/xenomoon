@@ -1,6 +1,6 @@
 // Composer — the message input box, its auto-grow, send, and quick-fill chips.
 import { $, $$, $input, fillComposer } from "./dom.js";
-import { addUser } from "./chat.js";
+import { addUser, showThinking } from "./chat.js";
 import { send } from "./websocket.js";
 
 const textarea = $input("composer-input");
@@ -14,6 +14,7 @@ function sendMessage() {
   const text = textarea.value.trim();
   if (!text) return;
   addUser(text);
+  showThinking();
   send({ type: "user_input", text });
   $("session-meta").textContent = "running";
   textarea.value = "";

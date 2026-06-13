@@ -2,7 +2,7 @@
 // /api/state. Assets is the file tree rooted at the project folder; Agents
 // and Skills list what exists and offer a "+ new …" starter that pre-fills
 // the composer (the designer interview takes it from there).
-import { $, $$, el, fillComposer } from "./dom.js";
+import { $, $$, el, fillComposer, appendToComposer } from "./dom.js";
 import { fetchJSON, parseJSON } from "../lib/json.js";
 import { view } from "./state.js";
 
@@ -108,8 +108,15 @@ function renderAssets(tree, s) {
   };
   const nest = el("div", "tree-nest");
   group(nest, "Design docs", s.designDocs, (d) => {
-    const item = el("div", "tree-item", d.path + " ");
-    item.append(el("span", "desc", `— ${d.title}`));
+    const item = el("div", "tree-item");
+    item.append(el("span", "tree-item-path", d.path), el("span", "desc", `— ${d.title}`));
+    const btn = el("button", "tree-add-btn", "+");
+    btn.title = "Add to chat";
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      appendToComposer(`@${d.path}`);
+    };
+    item.append(btn);
     return item;
   });
   group(nest, "Addon library", s.library ?? [], libraryItem);

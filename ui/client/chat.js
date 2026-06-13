@@ -1,4 +1,4 @@
-// Chat column — banners, user messages, and agent messages (with copy button).
+// Chat column — banners, user messages, agent messages, and thinking indicator.
 import { $, el } from "./dom.js";
 import { paint } from "./agents.js";
 import { renderMarkdown } from "./markdown.js";
@@ -7,6 +7,33 @@ const chatScroll = $("chat-scroll");
 export const scrollChat = () => {
   chatScroll.scrollTop = chatScroll.scrollHeight;
 };
+
+/** @type {HTMLElement | null} */
+let thinkingEl = null;
+
+/** Show a pulsing "thinking…" indicator in the chat after the user message. */
+export function showThinking() {
+  clearThinking();
+  const wrap = el("div", "msg-thinking");
+  wrap.append(el("span", "thinking-dot"), el("span", "thinking-status", "thinking…"));
+  thinkingEl = wrap;
+  $("chat-inner").append(wrap);
+  scrollChat();
+}
+
+/** Update the thinking indicator with the current tool being executed.
+ * @param {string} verb @param {string} [detail] */
+export function updateThinking(verb, detail) {
+  if (!thinkingEl) return;
+  const status = thinkingEl.querySelector(".thinking-status");
+  if (status) status.textContent = detail ? `${verb} · ${detail.slice(0, 60)}` : verb;
+}
+
+/** Remove the thinking indicator. */
+export function clearThinking() {
+  thinkingEl?.remove();
+  thinkingEl = null;
+}
 
 /** @param {string} text */
 export function addBanner(text) {

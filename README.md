@@ -3,7 +3,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Godot 4.x](https://img.shields.io/badge/Godot-4.x-blue.svg)
 ![Skills: 10](https://img.shields.io/badge/Skills-10-purple.svg)
-![Agents: 6](https://img.shields.io/badge/Agents-6-orange.svg)
+![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)
 ![Status: POC](https://img.shields.io/badge/Status-POC-yellow.svg)
 
 An experiment in building Godot games with Claude Code using **a deliberate pipeline instead of a chat box**.
