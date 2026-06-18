@@ -11,13 +11,13 @@
 
 ## HTTP
 
-| Route                | Returns                                                                                                                                                                                                                                                                                                                            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`              | the UI page                                                                                                                                                                                                                                                                                                                        |
-| `GET /api/state`     | live project inventory (JSON, scanned on every call — never cached, never stale)                                                                                                                                                                                                                                                   |
-| `GET /api/sessions`  | recent sessions from the NDJSON logs: `[{ id, title, when }]` — `id` is the Claude Code session id                                                                                                                                                                                                                                 |
-| `POST /api/settings` | merge a settings block into `.xenodot.json` (currently `{ hermes }`); replies with the key-free `{ hermes }` public view. Takes effect immediately — config is re-read per Hermes call, no restart                                                                                                                                 |
-| `POST /mcp`          | the Hive-side MCP callback server (stateless Streamable HTTP) that external Hermes runs call BACK into — `post_update` / `deliver_findings`. Auth: `Authorization: Bearer <mcpKey>`. Routed to the right session by a per-run token. Drives `hermes` activity msgs + injects findings into the Hive. See ui/server/mcp-callback.js |
+| Route                    | Returns                                                                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                  | the UI page                                                                                                                                                                                                       |
+| `GET /api/state`         | live project inventory (JSON, scanned on every call — never cached, never stale)                                                                                                                                  |
+| `GET /api/sessions`      | recent sessions from the NDJSON logs: `[{ id, title, when }]` — `id` is the Claude Code session id                                                                                                                |
+| `POST /api/settings`     | merge a settings block into `.xenodot.json` (currently `{ hermes }`); replies with the key-free `{ hermes }` public view. Takes effect immediately — config is re-read per Hermes call, no restart                |
+| `POST /api/hermes/check` | probe the Hermes gateway (URL/key from the body, or saved config) and reply with a reachability/auth/models/capabilities verdict. `GET /v1/models` only — no model run, no billing. See ui/server/hermes-check.js |
 
 `/api/state` shape:
 
@@ -37,13 +37,19 @@
   "scripts": ["tools/verify_scene.gd"],
   "agents": [{ "name": "godot-dev", "model": "sonnet" }], // model from agent frontmatter
   "skills": ["godot-verify", "..."],
-  // external Hermes researcher config — key-free (hasKey only); never returns the API key
+  // external Hermes researcher config — key-free (hasKey only); never returns the API key.
+  // `model`/`models` are cosmetic labels (the effective model is chosen server-side in Hermes);
+  // `apiUrl` defaults to the gateway's API server on :8642.
   "hermes": {
     "enabled": false,
-    "apiUrl": "http://localhost:8000",
-    "model": "anthropic/claude-opus-4.7",
+    "apiUrl": "http://localhost:8642",
+    "model": "nousresearch/hermes-4-70b",
     "hasKey": false,
-    "models": ["anthropic/claude-opus-4.7", "moonshotai/kimi-k2.6", "openai/gpt-5.4"]
+    "models": [
+      "nousresearch/hermes-4-405b",
+      "nousresearch/hermes-4-70b",
+      "nousresearch/hermes-4.3-36b"
+    ]
   }
 }
 ```

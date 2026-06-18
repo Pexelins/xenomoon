@@ -18,6 +18,7 @@ import { getHermesConfig } from "./config.js";
 
 /** The verdict of one probe. `reachable` = the gateway answered at all; `authOk` =
  * the bearer key was accepted; `ok` = both, with a usable model list.
+ * `caps` carries the runs-API feature flags the Hermes tool depends on (poll status + stream events).
  * @typedef {{
  *   ok: boolean,
  *   reachable: boolean,
@@ -25,6 +26,7 @@ import { getHermesConfig } from "./config.js";
  *   status?: number,
  *   models?: string[],
  *   tools?: string[],
+ *   caps?: { runStatus: boolean, runEventsSse: boolean },
  *   error?: string,
  * }} HermesCheck */
 
@@ -46,6 +48,27 @@ async function fetchEnabledTools(base, key, signal) {
     return (body?.data ?? [])
       .filter((t) => t.enabled === true && typeof t.name === "string")
       .map((t) => /** @type {string} */ (t.name));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Best-effort: the runs-API feature flags from `GET /v1/capabilities` — the surface the Hermes
+ * tool relies on (poll run status + stream events). undefined if the endpoint is missing/old.
+ * @param {string} base @param {string | null} key @param {AbortSignal} signal
+ * @returns {Promise<{ runStatus: boolean, runEventsSse: boolean } | undefined>} */
+async function fetchCapabilities(base, key, signal) {
+  try {
+    const res = await fetch(`${base}/v1/capabilities`, {
+      headers: key ? { authorization: `Bearer ${key}` } : {},
+      signal,
+    });
+    if (!res.ok) return undefined;
+    const body = /** @type {{ features?: Record<string, unknown> } | null} */ (
+      safeParse(await res.text().catch(() => "{}"))
+    );
+    const f = body?.features ?? {};
+    return { runStatus: f.run_status === true, runEventsSse: f.run_events_sse === true };
   } catch {
     return undefined;
   }
@@ -96,7 +119,8 @@ export async function checkHermes(cfg, timeoutMs = 8000) {
     );
     const models = (body?.data ?? []).map((m) => m.id).filter((id) => typeof id === "string");
     const tools = await fetchEnabledTools(base, apiKey, ctrl.signal);
-    return { ok: true, reachable: true, authOk: true, status: res.status, models, tools };
+    const caps = await fetchCapabilities(base, apiKey, ctrl.signal);
+    return { ok: true, reachable: true, authOk: true, status: res.status, models, tools, caps };
   } catch (err) {
     const aborted = ctrl.signal.aborted;
     return {
@@ -145,6 +169,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           risky.length
             ? `  ⚠ MACHINE ACCESS ENABLED: ${risky.join(", ")} — run on THIS machine. Restrict with \`npm run hermes:setup\`.`
             : "  ✓ no machine-access tools (terminal/file/code) on the API path.",
+        );
+      }
+      if (r.caps) {
+        console.log(
+          r.caps.runStatus
+            ? `  ✓ runs API ready (run_status${r.caps.runEventsSse ? " + events SSE" : ""}) — findings delivery supported.`
+            : "  ⚠ gateway lacks run_status — the Hermes bridge can't read findings; update Hermes.",
         );
       }
     })

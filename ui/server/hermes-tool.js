@@ -3,18 +3,21 @@
 // Hive (orchestrator main loop) calls it — no sub-agent frontmatter grants it, and it has no
 // auto-allow branch in canUseTool, so every dispatch passes the per-call permission gate.
 //
-// FIRE-AND-FORGET. Hermes runs its OWN agent loop server-side, so we never block on it: we POST
-// the run and return immediately. Hermes reports back on its own by calling our MCP callback tools
-// (see mcp-callback.js): `post_update` streams progress to the activity feed, `deliver_findings`
-// hands the final findings to the Hive — pushed into the session inbox as a new turn, exactly like
-// a user message, so the Hive resumes with them without anything having been held open.
-//
-// Correlation: Hermes passes NO caller context to an MCP tool, so each run carries a one-off
-// `token` we mint here, inject into the run's `instructions`, and register against this session's
-// feed+inbox (hermes-runs.js). Hermes echoes the token on every callback so we route it back.
+// FIRE-AND-FORGET UX, but delivery is READ, not pushed. Hermes' runs API has NO callback/webhook:
+// POST /v1/runs returns a run_id at once and the agent loops server-side. We never block the Hive
+// turn — we spawn a background WATCHER that reads the run to completion:
+//   • GET /v1/runs/{id}/events (SSE) — best-effort live progress → activity feed (cosmetic).
+//   • GET /v1/runs/{id}           — authoritative state; the final findings ARE the run's `output`.
+// When the run finishes we push the findings into the session inbox as a new turn (exactly like a
+// user message), so the Hive resumes with them without anything having been held open. A run that
+// stalls on an approval gate, or runs past the wall-clock cap, is stopped (POST /v1/runs/{id}/stop)
+// and reported as done — never left hanging silently.
 //
 // Hermes "runs" API (docs/user-guide/features/api-server):
-//   POST /v1/runs {input, instructions?} -> {run_id, status}   (returns at once; loop runs server-side)
+//   POST /v1/runs {input, instructions?} -> {run_id, status:"started"}    (returns at once)
+//   GET  /v1/runs/{id}                   -> {status, output, usage, ...}   (status: completed|failed|cancelled)
+//   GET  /v1/runs/{id}/events            -> SSE: tool-call/progress/lifecycle events
+//   POST /v1/runs/{id}/stop              -> stop a run
 //   Auth: Authorization: Bearer <API_SERVER_KEY>
 // The request `model` is server-side/cosmetic on a single-profile Hermes, so we don't send it.
 //
@@ -22,11 +25,9 @@
 // (never throws), so the framework runs exactly as today and the Hive dispatches a researcher itself.
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
 import { parseJSON } from "../lib/json.js";
 import { getHermesConfig } from "./config.js";
 import { getPersona, PERSONA_IDS } from "../lib/hermes-personas.js";
-import { registerRun } from "./hermes-runs.js";
 
 /** @typedef {(obj: import("../lib/types.js").OutMsg) => void} Send */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
@@ -35,6 +36,12 @@ import { registerRun } from "./hermes-runs.js";
 
 /** A tool text result, in the shape the agent SDK expects. @param {string} text */
 const ok = (text) => ({ content: [{ type: /** @type {const} */ ("text"), text }] });
+
+// Timeouts. The POST only opens the run; the watcher then reads it for as long as the run runs,
+// up to a wall-clock cap (research can be long, but never unbounded).
+const CREATE_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 3_000;
+const RUN_WALLCLOCK_MS = 15 * 60_000;
 
 /** Push a Hermes activity line to the UI feed; `persona` names + colors the pill.
  * @param {Send} send @param {string} persona @param {"start" | "progress" | "done"} phase
@@ -55,19 +62,19 @@ function parseAs(data) {
 const authHeaders = (/** @type {string} */ key) => ({ authorization: `Bearer ${key}` });
 const baseOf = (/** @type {string} */ url) => url.replace(/\/+$/, "");
 
-/** Compose a run's `instructions`: the persona's standing brief, the callback protocol (HOW to
- * report back, carrying the run's token), and the Hive's task `context`. Hermes appends all of this
- * to its own SOUL/base persona. @param {HermesPersona} persona @param {string} token
- * @param {string} [context] @returns {string} */
-function buildInstructions(persona, token, context) {
-  const protocol =
-    "\n\n--- Reporting back (REQUIRED) ---\n" +
-    "You run headless; your ONLY channel to your human is these Xenodot MCP tools:\n" +
-    "• mcp_xenodot_post_update(token, text) — call as you work, to stream progress they watch live.\n" +
-    "• mcp_xenodot_deliver_findings(token, text) — call EXACTLY ONCE at the very end, with your full findings.\n" +
-    `ALWAYS pass token="${token}". If you finish WITHOUT calling mcp_xenodot_deliver_findings, your work is lost.`;
+/** Compose a run's `instructions`: the persona's standing brief plus the Hive's task `context`.
+ * Hermes appends this to its own SOUL/base persona and layers it on its system prompt. The agent's
+ * FINAL message is the deliverable (it becomes the run's `output`), so we say so explicitly — there
+ * is no separate "report back" channel any more. @param {HermesPersona} persona @param {string}
+ * [context] @returns {string} */
+function buildInstructions(persona, context) {
+  const headless =
+    "\n\n--- How this runs ---\n" +
+    "You are running headless for the Xenodot Hive: there is no interactive human in this run. " +
+    "Your FINAL message IS your entire deliverable — put your complete, self-contained findings " +
+    "there (a partial answer or a question back is lost). Work to a conclusion, then stop.";
   const extra = context?.trim();
-  return persona.brief + protocol + (extra ? `\n\n--- Task context ---\n${extra}` : "");
+  return persona.brief + headless + (extra ? `\n\n--- Task context ---\n${extra}` : "");
 }
 
 /** Create a run and return its id. The POST returns immediately; the agent loops server-side.
@@ -115,8 +122,191 @@ function findingsTurn(runId, persona, findings) {
   };
 }
 
-/** Build the Hermes start tool. Fire-and-forget: POST the run, register a callback token, return
- * at once. Hermes reports back via the MCP callback tools (mcp-callback.js).
+/** Resolve after `ms`, or early if `signal` aborts (so the watcher unblocks on teardown).
+ * @param {number} ms @param {AbortSignal} signal @returns {Promise<void>} */
+function sleep(ms, signal) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+/** Fetch one run's current state. @param {string} base @param {string} key @param {string} runId
+ * @param {AbortSignal} signal @returns {Promise<Record<string, unknown> | null>} */
+async function fetchRun(base, key, runId, signal) {
+  const res = await fetch(`${base}/v1/runs/${runId}`, { headers: authHeaders(key), signal });
+  if (!res.ok) throw new Error(`run status ${res.status}`);
+  return /** @type {Record<string, unknown> | null} */ (
+    parseAs(await res.text().catch(() => "{}"))
+  );
+}
+
+/** Best-effort stop of a run (timeout / approval gate). Never throws. @param {string} base
+ * @param {string} key @param {string} runId @returns {Promise<void>} */
+async function stopRun(base, key, runId) {
+  try {
+    await fetch(`${base}/v1/runs/${runId}/stop`, { method: "POST", headers: authHeaders(key) });
+  } catch {
+    /* the run will still hit its own server-side limits; nothing more we can do */
+  }
+}
+
+/** Decide what a polled run state means. @param {Record<string, unknown> | null} state
+ * @param {string} runId @returns {{ kind: "pending" } | { kind: "approval" } |
+ *   { kind: "completed", output: string } | { kind: "ended", text: string }} */
+function classifyRun(state, runId) {
+  const status = typeof state?.status === "string" ? state.status.toLowerCase() : "";
+  if (status.includes("approval")) return { kind: "approval" };
+  if (status === "completed") {
+    const out = state?.output;
+    const output = typeof out === "string" ? out : out == null ? "" : JSON.stringify(out);
+    return { kind: "completed", output };
+  }
+  if (status === "failed" || status === "cancelled" || status === "canceled") {
+    const why = typeof state?.error === "string" ? ` — ${state.error.slice(0, 200)}` : "";
+    return { kind: "ended", text: `Hermes run ${runId} ${status}${why}.` };
+  }
+  return { kind: "pending" };
+}
+
+/** Pull a short, human-meaningful progress line out of one parsed SSE event, or null to skip
+ * (token deltas and shapeless frames are ignored — progress pills are cosmetic; `output` is truth).
+ * @param {string} event @param {unknown} data @returns {string | null} */
+function extractProgress(event, data) {
+  if (!data || typeof data !== "object") return null;
+  const d = /** @type {Record<string, unknown>} */ (data);
+  const str = (/** @type {unknown} */ v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const tool = str(d.tool) ?? str(d.name);
+  if (tool) return `· ${tool}`.slice(0, 240);
+  const msg = str(d.message) ?? str(d.summary) ?? str(d.status);
+  if (msg) return msg.slice(0, 240);
+  // A named lifecycle event with no payload text — surface the event name, not raw token deltas.
+  if (event && !str(d.delta) && !str(d.text)) return event.slice(0, 240);
+  return null;
+}
+
+/** Parse one SSE frame ("event:"/"data:" lines, blank-line terminated) → progress line or null.
+ * @param {string} frame @returns {string | null} */
+function progressFromFrame(frame) {
+  /** @type {string[]} */
+  const dataLines = [];
+  let event = "";
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    else if (line.startsWith("event:")) event = line.slice(6).trim();
+  }
+  if (!dataLines.length) return null;
+  return extractProgress(event, parseAs(dataLines.join("\n")));
+}
+
+/** Best-effort live progress: read the run's SSE event stream and hand each meaningful line to
+ * `onText`. Any error is swallowed — the poll loop is the source of truth, so progress is pure
+ * sugar. @param {string} base @param {string} key @param {string} runId
+ * @param {(text: string) => void} onText @param {AbortSignal} signal @returns {Promise<void>} */
+async function streamProgress(base, key, runId, onText, signal) {
+  try {
+    const res = await fetch(`${base}/v1/runs/${runId}/events`, {
+      headers: { ...authHeaders(key), accept: "text/event-stream" },
+      signal,
+    });
+    if (!res.ok || !res.body) return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const line = progressFromFrame(buf.slice(0, idx));
+        buf = buf.slice(idx + 2);
+        if (line) onText(line);
+      }
+    }
+  } catch {
+    /* best-effort: SSE unavailable/dropped is non-fatal — the poll loop still delivers findings */
+  }
+}
+
+/** Watch a fired run to its end and report back to the session: stream progress to the feed, push
+ * the final `output` into the inbox as a Hive turn, or report failure/approval/timeout. Runs in the
+ * background (the tool call has already returned). @param {string} base @param {string} key
+ * @param {string} runId @param {HermesPersona} persona @param {Send} send @param {Push} push */
+async function watchRun(base, key, runId, persona, send, push) {
+  const ctrl = new AbortController();
+  const deadline = Date.now() + RUN_WALLCLOCK_MS;
+  void streamProgress(
+    base,
+    key,
+    runId,
+    (text) => {
+      relay(send, persona.id, "progress", text, runId);
+    },
+    ctrl.signal,
+  );
+  try {
+    for (;;) {
+      if (Date.now() > deadline) {
+        await stopRun(base, key, runId);
+        relay(
+          send,
+          persona.id,
+          "done",
+          `Hermes run ${runId} exceeded ${Math.round(RUN_WALLCLOCK_MS / 60_000)}m — stopped.`,
+          runId,
+        );
+        return;
+      }
+      await sleep(POLL_INTERVAL_MS, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      let state;
+      try {
+        state = await fetchRun(base, key, runId, ctrl.signal);
+      } catch {
+        continue; // transient read error — keep polling until the deadline
+      }
+      const verdict = classifyRun(state, runId);
+      if (verdict.kind === "pending") continue;
+      if (verdict.kind === "approval") {
+        await stopRun(base, key, runId);
+        relay(
+          send,
+          persona.id,
+          "done",
+          `Hermes run ${runId} paused on an approval gate — unsupported headless; stopped. ` +
+            "Dispatch a xenodot:*-researcher instead.",
+          runId,
+        );
+        return;
+      }
+      if (verdict.kind === "ended") {
+        relay(send, persona.id, "done", verdict.text, runId);
+        return;
+      }
+      // completed
+      relay(send, persona.id, "done", "Hermes delivered its findings.", runId);
+      try {
+        push(findingsTurn(runId, persona, verdict.output));
+      } catch {
+        /* session gone — nothing to deliver to */
+      }
+      return;
+    }
+  } finally {
+    ctrl.abort(); // tear down the SSE stream
+  }
+}
+
+/** Build the Hermes start tool. Fire-and-forget: POST the run, kick off a background watcher that
+ * reads it to completion (mcp-callback-free), return at once.
  * @param {Send} send @param {Push} push the session inbox.push — how findings re-enter the Hive */
 export function makeHermesTool(send, push) {
   return tool(
@@ -154,36 +344,17 @@ export function makeHermesTool(send, push) {
         );
       }
       const persona = getPersona(input.persona);
-      const token = randomBytes(16).toString("hex");
-      const instructions = buildInstructions(persona, token, input.context);
-      // Short timeout for the POST only — it returns fast; we never hold the run open.
+      const base = baseOf(cfg.apiUrl);
+      const instructions = buildInstructions(persona, input.context);
+      // Short timeout for the POST only — it returns fast; the watcher then reads the run.
       const ctrl = new AbortController();
       const timer = setTimeout(() => {
         ctrl.abort();
-      }, 30_000);
+      }, CREATE_TIMEOUT_MS);
       try {
-        const runId = await createRun(
-          baseOf(cfg.apiUrl),
-          cfg.apiKey,
-          input.task,
-          instructions,
-          ctrl.signal,
-        );
-        registerRun(token, {
-          persona: persona.id,
-          runId,
-          onUpdate: (text) => {
-            relay(send, persona.id, "progress", text, runId);
-          },
-          onFindings: (text) => {
-            relay(send, persona.id, "done", "Hermes delivered its findings.", runId);
-            try {
-              push(findingsTurn(runId, persona, text));
-            } catch {
-              /* session gone — nothing to deliver to */
-            }
-          },
-        });
+        const runId = await createRun(base, cfg.apiKey, input.task, instructions, ctrl.signal);
+        // Read the run to completion in the background; the tool returns now (fire-and-forget).
+        void watchRun(base, cfg.apiKey, runId, persona, send, push);
         relay(send, persona.id, "start", input.task.slice(0, 240), runId);
         return ok(
           `Hermes ${persona.name} run started (id ${runId}) — working in the background. It will ` +
