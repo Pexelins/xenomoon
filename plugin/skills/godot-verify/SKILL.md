@@ -16,6 +16,7 @@ Godot binary: `/Applications/Godot.app/Contents/MacOS/Godot` (not on PATH). Defi
 - **Exit codes lie.** Godot exits 0 even on `SCRIPT ERROR:` parse failures. Never trust `$?`; grep output.
 - **Unknown properties silently drop.** A `.tscn` with `energy_multiplier = 1.5` on `DirectionalLight3D` loads with zero warnings — property vanishes. Only layer 1 catches this.
 - **Valid scenes can render pure black with zero errors.** Transposed `Transform3D` basis aimed camera away from level — every property name valid, no errors, black screen. Only layer 3 catches this. Editor viewport doesn't catch it either (uses editor camera).
+- **Render config has one ground truth: project.godot.** When reasoning about effective render resolution, stretch, aspect, or renderer, read `[display]` (`window/size/viewport_*`, `window/stretch/*`) and `config/features` in project.godot. NEVER infer the effective render resolution from a node's properties (a SubViewport's `stretch_shrink`/`size`, a Viewport's size) — those are one rig's local setting, not the window/stretch pipeline, and a number read off them (e.g. "213×120") is a fabrication that can drive a wrong plan.
 
 ## Layer 1 — property validation (catches silent drops)
 
