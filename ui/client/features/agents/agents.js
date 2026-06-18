@@ -37,6 +37,15 @@ const ROLE_COLOR = {
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenodot)
 };
 
+/** Strip "namespace:" prefix from a plugin-namespaced agent id.
+ *  "xenodot:game-designer" → "game-designer", "hermes" → "hermes"
+ * @param {string} name @returns {string} */
+function stripNs(name) {
+  if (!name) return name;
+  const i = name.indexOf(":");
+  return i === -1 ? name : name.slice(i + 1);
+}
+
 // Display-name (brand) map: identifier -> what the user sees. Brand first
 // ("Xenodot <role>"), so every agent reads as one of our Xenodots. Pure UI
 // flavor — the SDK identifiers (subagent_type) and agent filenames stay literal
@@ -51,15 +60,18 @@ const DISPLAY = {
   "godot-refactor": "Xenodot Refactor",
   "addon-researcher": "Xenodot Researcher",
   "transcript-researcher": "Xenodot Transcript",
-  hermes: "Hermes", // external researcher — deliberately not branded "Xenodot"
+  hermes: "Hermes: Researcher",
+  "codex-rescue": "Codex: Reviewer",
 };
 
 /** @param {string} name @returns {string} */
 export function agentLabel(name) {
   if (!name) return name;
   if (DISPLAY[name]) return DISPLAY[name];
+  const bare = stripNs(name);
+  if (DISPLAY[bare]) return DISPLAY[bare];
   // Fallback for any agent not in the map: brand first, domain prefix dropped.
-  const role = name.replace(/^(godot|game|addon|level|transcript)-/, "").replace(/-/g, " ");
+  const role = bare.replace(/^(godot|game|addon|level|transcript)-/, "").replace(/-/g, " ");
   const titled = role.replace(/\b\w/g, (c) => c.toUpperCase());
   return `Xenodot ${titled}`;
 }
@@ -84,19 +96,20 @@ export function agentRole(name) {
 /** @param {string} name @returns {string} */
 export function agentColor(name) {
   if (name === "main") return "var(--accent-text)";
-  if (ROLE_COLOR[name]) return ROLE_COLOR[name];
-  let color = assigned.get(name);
+  const bare = stripNs(name);
+  if (ROLE_COLOR[bare]) return ROLE_COLOR[bare];
+  let color = assigned.get(bare);
   if (!color) {
     color = PALETTE[nextIdx % PALETTE.length] ?? "var(--accent-text)";
     nextIdx++;
-    assigned.set(name, color);
+    assigned.set(bare, color);
   }
   return color;
 }
 
 /** @param {HTMLElement} node @param {string} agent @returns {HTMLElement} */
 export function paint(node, agent) {
-  node.dataset.agent = agent;
+  node.dataset.agent = stripNs(agent);
   node.style.setProperty("--agent-color", agentColor(agent));
   return node;
 }

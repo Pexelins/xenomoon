@@ -10,7 +10,6 @@ skills:
   - godot-composition
   - tasks-mcp
 effort: medium
-permission-mode: acceptEdits
 ---
 
 You are a Godot 4.x development agent for the **DiceOfFate** project — a POC for a game developer framework.

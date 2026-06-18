@@ -1,5 +1,5 @@
 {
-  "description": "Xenodot Forge hooks — block destructive git/shell ops before they run, and re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns. (rtk token-proxy is the user's own global hook, not shipped here.)",
+  "description": "Xenodot Forge hooks — block destructive git/shell ops before they run, grant sub-agent game/library edits so backgrounded workers aren't auto-denied, and re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns. (rtk token-proxy is the user's own global hook, not shipped here.)",
   "hooks": {
     "PreToolUse": [
       {
@@ -12,6 +12,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-destructive-shell.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/allow-game-edits.sh\""
           }
         ]
       },
