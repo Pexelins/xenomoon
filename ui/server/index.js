@@ -18,13 +18,11 @@ import {
   LOG_DIR,
   ENGINE_LABEL,
   RES_ASSET_MOUNT,
-  MCP_CALLBACK_PATH,
   saveHermesConfig,
   hermesPublicConfig,
   getHermesConfig,
 } from "./config.js";
 import { checkHermes } from "./hermes-check.js";
-import { handleMcpRequest } from "./mcp-callback.js";
 import { maybeStartHermesGateway } from "./hermes-gateway.js";
 import { projectState } from "./project-state.js";
 import { recentSessions, deleteSession } from "./transcripts.js";
@@ -197,27 +195,6 @@ function handleHermesCheckPost(req, res) {
   });
 }
 
-/** Route the Hermes → Xenodot MCP callback endpoint: buffer the JSON body, then hand it to the
- * stateless MCP transport (which writes the JSON-RPC response itself).
- * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
-function handleMcpRoute(req, res) {
-  /** @type {Buffer[]} */
-  const chunks = [];
-  req.on("data", (/** @type {Buffer} */ c) => {
-    chunks.push(c);
-  });
-  req.on("end", () => {
-    const raw = Buffer.concat(chunks).toString("utf8");
-    let body;
-    try {
-      body = raw ? parseJSON(raw) : undefined;
-    } catch {
-      body = undefined;
-    }
-    void handleMcpRequest(req, res, body);
-  });
-}
-
 mkdirSync(LOG_DIR, { recursive: true });
 
 // Materialize the framework's per-game files into the game (gitignored): tools copied,
@@ -254,11 +231,6 @@ const POST_ROUTES = {
 
 const server = http.createServer((req, res) => {
   const url = req.url ?? "";
-  // The Hermes → Xenodot MCP callback endpoint (its own JSON-RPC protocol, all methods).
-  if (url === MCP_CALLBACK_PATH || url.startsWith(`${MCP_CALLBACK_PATH}/`)) {
-    handleMcpRoute(req, res);
-    return;
-  }
   const getRoute = GET_ROUTES[url];
   if (getRoute) {
     res.writeHead(200, { "content-type": "application/json" });

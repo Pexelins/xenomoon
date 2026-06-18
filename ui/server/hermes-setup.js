@@ -11,8 +11,8 @@
 //      key the bridge's path reads — not `cli`, not the top-level `toolsets:`). `config set`
 //      can't write lists, so this is a direct YAML edit,
 //   5. read the file back and print the real values (no silent state),
-//   6. register the Hive-side MCP callback (mcp_servers.xenodot) so a FIRED run can report back
-//      to the UI — post_update/deliver_findings; the `xenodot` toolset alias is added in step 4,
+//   6. strip any stale `mcp_servers.xenodot` callback from older Xenodot versions (the bridge no
+//      longer uses an MCP callback — findings are READ from the runs API; see hermes-tool.js),
 //   7. install the Xenodot "partner" persona into ~/.hermes/SOUL.md (only if it's absent or
 //      the stock template — a SOUL you've customized is never overwritten),
 //   8. wire Xenodot's .xenodot.json and print the remaining manual steps.
@@ -38,7 +38,7 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { parseJSON } from "../lib/json.js";
-import { saveHermesConfig, getHermesConfig, CONFIG_FILE, MCP_CALLBACK_URL } from "./config.js";
+import { saveHermesConfig, CONFIG_FILE } from "./config.js";
 
 const argv = process.argv.slice(2);
 /** @param {string} n @returns {boolean} */
@@ -255,9 +255,6 @@ function configureModelAndTools() {
   const arr = TOOLSETS.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  // Add the Hive-side MCP callback server (its toolset alias) so a fired run can report back via
-  // post_update/deliver_findings. It's an RPC to our server over MCP — NOT local machine access.
-  if (!arr.includes("xenodot")) arr.push("xenodot");
   const cfg = configPath();
   if (!cfg) {
     console.log("  ✗ couldn't locate config.yaml — restrict tools via `hermes config edit`.");
@@ -287,20 +284,15 @@ function configureModelAndTools() {
   );
 }
 
-/** Register the Hive-side MCP callback server in Hermes' config so a FIRED run can report back —
- * post_update streams progress to the UI, deliver_findings hands findings to the Hive. Generates
- * (or reuses) the shared secret Hermes presents as its Authorization header, persists it to
- * .xenodot.json (our server validates it), and points Hermes at MCP_CALLBACK_URL. The `xenodot`
- * toolset alias is added to platform_toolsets.api_server by configureModelAndTools. */
-function ensureMcpCallback() {
-  const mcpKey = getHermesConfig().mcpKey ?? randomBytes(24).toString("hex");
-  console.log(`\nMCP callback (so Hermes can report back to the Hive):`);
-  configSet("mcp_servers.xenodot.url", MCP_CALLBACK_URL);
-  configSet("mcp_servers.xenodot.headers.Authorization", `Bearer ${mcpKey}`);
-  saveHermesConfig({ mcpKey });
-  console.log(`  ✓ Hermes → Xenodot callback wired → ${MCP_CALLBACK_URL}`);
-  console.log("    The UI server must be running for Hermes to discover it, and the gateway only");
-  console.log("    re-discovers MCP servers at startup — so RESTART the gateway after setup.");
+/** Strip any leftover Hive-side MCP callback registration from older Xenodot versions. The bridge
+ * no longer uses a callback — Hermes' runs API has none; findings are READ from GET /v1/runs/{id}
+ * (see hermes-tool.js) — so `mcp_servers.xenodot` is dead config. `hermes mcp remove` edits the
+ * YAML correctly; this is idempotent (a no-op when there's nothing to remove). */
+function removeLegacyCallback() {
+  const r = spawnSync("hermes", ["mcp", "remove", "xenodot"], { stdio: "ignore" });
+  if (r.status === 0) {
+    console.log("\n✓ Removed a stale Hermes→Xenodot MCP callback (the bridge no longer uses one).");
+  }
 }
 
 /** True when SOUL.md carries no real persona content — the stock template (a heading + the
@@ -470,19 +462,15 @@ function resetSetup() {
 }
 
 function printNext() {
-  console.log("\nAlmost done — start things in the right ORDER (the gateway discovers MCP servers");
-  console.log("at startup, so the UI's /mcp callback must be up FIRST):");
-  console.log(
-    "  1. `npm start` — serves the UI + the Hermes→Hive callback at /mcp, and auto-starts",
-  );
-  console.log("     the gateway so it discovers the callback. If you run the gateway yourself,");
-  console.log("     (re)start it AFTER `npm start` is up.");
+  console.log("\nAlmost done — bring Hermes up:");
+  console.log("  1. `npm start` — serves the UI; it also auto-starts `hermes gateway` when Hermes");
+  console.log("     is enabled (skipped if one is already up). Or run `hermes gateway` yourself.");
   if (KEY_GENERATED) {
     console.log("     (A new API_SERVER_KEY was generated — restart any already-running gateway.)");
   }
   console.log("  2. Verify the link:  npm run hermes:check   (⚙ Settings → Test connection too)");
   console.log("\nThen give the Hive a research task and approve the Hermes call: it runs in the");
-  console.log("background and reports progress + findings back into your feed.");
+  console.log("background, streams progress, and delivers its findings back into your feed.");
 }
 
 async function main() {
@@ -496,7 +484,7 @@ async function main() {
     if (!(await ensureInstalled(rl))) return;
     const key = ensureEnv();
     configureModelAndTools();
-    ensureMcpCallback();
+    removeLegacyCallback();
     ensureSoul();
     printAuthGuidance();
     wireXenodot(key);
