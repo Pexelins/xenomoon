@@ -5,17 +5,26 @@
 // descriptor reproduces the framework's original hardcoded values, so behavior is
 // unchanged until a different domain is selected.
 //
-// Selection (first hit wins): env XENODOT_DOMAIN -> .xenodot.json "domain" -> "godot".
+// A domain is bound to a project DETERMINISTICALLY at install time: `forge new --domain <name>`
+// writes a project lock (PROJECT_LOCK_FILE) into the project. At runtime the spine reads that
+// lock as AUTHORITATIVE — an explicit override (env / framework config) that disagrees is
+// refused, never silently applied. Resolution when no lock exists: env XENODOT_DOMAIN ->
+// framework .xenodot.json "domain" -> "godot".
 //
 // This module is ADDITIVE (no upstream file owns it), so it never conflicts on an upstream
 // pull. The few spine files that consult it are listed in docs/whitelabel/SEAMS.md.
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 
 /** Default domain — its descriptor mirrors the framework's original Godot behavior. */
 export const DEFAULT_DOMAIN = "godot";
+
+/** A project's domain lock, written into the project by install — DISTINCT from the framework's
+ *  own `.xenodot.json` (which lives at the framework root). Committed with the project so the
+ *  binding travels. Shape: `{ "domain": "<name>" }`. */
+export const PROJECT_LOCK_FILE = ".xenodot-project.json";
 
 const SELF_DIR = path.dirname(fileURLToPath(import.meta.url)); // ui/server/core
 const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
@@ -31,7 +40,8 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  *           on-disk project marker + engine/runtime name
  * @property {{ scenes: string[], scripts: string[] }} inventory
  *           file extensions the live project inventory scans for
- * @property {string} starter   starter folder to scaffold, relative to the framework dir
+ * @property {string|null} starter starter folder to scaffold (relative to the framework dir),
+ *           or null for an install-into-existing domain that never scaffolds
  * @property {string} plugin    capability plugin dir, relative to the framework dir
  * @property {string} orchestrator routing-prompt file, relative to the framework dir
  * @property {Record<string,string>} commands build/verify commands written into the manifest
@@ -46,6 +56,18 @@ const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
 const strOr = (v, fallback) => (typeof v === "string" && v ? v : fallback);
 /** A plain object (commands map) or absent — rejects arrays/primitives. @param {unknown} v @returns {boolean} */
 const isObjectOrAbsent = (v) => v == null || (typeof v === "object" && !Array.isArray(v));
+
+/** Read a `domain` string from a JSON file, or null if the file/key is absent or invalid.
+ *  @param {string} file @returns {string|null} */
+function readDomainKey(file) {
+  try {
+    const saved = /** @type {{ domain?: unknown }} */ (parseJSON(readFileSync(file, "utf8")));
+    const d = saved?.domain;
+    return typeof d === "string" && d ? d : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Validate parsed domain.json and return the normalized descriptor. Throws listing every
  *  missing/invalid field at once. @param {RawDomain} raw @param {string} name
@@ -65,7 +87,6 @@ function normalizeDescriptor(raw, name) {
   if (!isNonEmptyString(projectFile)) errs.push("engine.projectFile");
   if (!Array.isArray(scenes)) errs.push("inventory.scenes[]");
   if (!Array.isArray(scripts)) errs.push("inventory.scripts[]");
-  if (!isNonEmptyString(starter)) errs.push("starter");
   if (!isNonEmptyString(plugin)) errs.push("plugin");
   if (!isNonEmptyString(orchestrator)) errs.push("orchestrator");
   if (!isObjectOrAbsent(commands)) errs.push("commands (object)");
@@ -87,37 +108,58 @@ function normalizeDescriptor(raw, name) {
       scenes: /** @type {string[]} */ (scenes),
       scripts: /** @type {string[]} */ (scripts),
     },
-    starter: /** @type {string} */ (starter),
+    // Optional: a domain that only installs into existing projects (e.g. app) declares no starter.
+    starter: isNonEmptyString(starter) ? /** @type {string} */ (starter) : null,
     plugin: /** @type {string} */ (plugin),
     orchestrator: /** @type {string} */ (orchestrator),
     commands: /** @type {Record<string,string>} */ (commands ?? {}),
   };
 }
 
-/** Resolve the active domain NAME (not the descriptor). First hit wins:
- *  env XENODOT_DOMAIN -> .xenodot.json "domain" -> DEFAULT_DOMAIN.
- *  @param {string} [frameworkDir]
- *  @returns {string} */
-export function resolveDomainName(frameworkDir = SELF_FRAMEWORK_DIR) {
-  if (process.env.XENODOT_DOMAIN) return process.env.XENODOT_DOMAIN;
-  try {
-    const saved = /** @type {{ domain?: unknown }} */ (
-      parseJSON(readFileSync(path.join(frameworkDir, ".xenodot.json"), "utf8"))
-    );
-    const domain = saved?.domain;
-    if (typeof domain === "string" && domain) return domain;
-  } catch {
-    /* absent/invalid — fall through to the default */
-  }
-  return DEFAULT_DOMAIN;
+/** Read a project's locked domain (PROJECT_LOCK_FILE), or null if unlocked/absent.
+ *  @param {string} projectDir @returns {string|null} */
+export function readProjectLock(projectDir) {
+  return readDomainKey(path.join(projectDir, PROJECT_LOCK_FILE));
 }
 
-/** Load + validate a domain descriptor from domains/<name>/domain.json. Throws a clear
- *  error (listing available domains) if it's missing or malformed — a bad domain selection
- *  should fail loudly at startup, not silently fall back to Godot.
- *  @param {string} name
- *  @param {string} [frameworkDir]
- *  @returns {DomainDescriptor} */
+/** Write/refresh a project's domain lock (deterministic, install-time). The lock is the project's
+ *  binding to a domain; the spine reads it as authoritative thereafter.
+ *  @param {string} projectDir @param {string} domain */
+export function writeProjectLock(projectDir, domain) {
+  writeFileSync(
+    path.join(projectDir, PROJECT_LOCK_FILE),
+    JSON.stringify({ domain }, null, 2) + "\n",
+  );
+}
+
+/** The domain a caller explicitly REQUESTED (an override), or null — env XENODOT_DOMAIN, then the
+ *  framework's own `.xenodot.json` `domain`. Absence is null (NOT the default).
+ *  @param {string} frameworkDir @returns {string|null} */
+function readRequestedDomain(frameworkDir) {
+  if (process.env.XENODOT_DOMAIN) return process.env.XENODOT_DOMAIN;
+  return readDomainKey(path.join(frameworkDir, ".xenodot.json"));
+}
+
+/** Resolve the active domain NAME for a project. The project's lock is AUTHORITATIVE; an explicit
+ *  override that disagrees is REFUSED (no silent override). With no lock: override -> DEFAULT_DOMAIN.
+ *  @param {string} projectDir @param {string} [frameworkDir] @returns {string} */
+export function resolveDomainName(projectDir, frameworkDir = SELF_FRAMEWORK_DIR) {
+  const locked = readProjectLock(projectDir);
+  const requested = readRequestedDomain(frameworkDir);
+  if (locked && requested && locked !== requested) {
+    throw new Error(
+      `domain mismatch: this project is locked to "${locked}" but "${requested}" was requested ` +
+        `(via env XENODOT_DOMAIN or .xenodot.json). The project lock wins — drop the override, or ` +
+        `re-install the project for "${requested}".`,
+    );
+  }
+  return locked ?? requested ?? DEFAULT_DOMAIN;
+}
+
+/** Load + validate a domain descriptor from domains/<name>/domain.json. Throws a clear error
+ *  (listing available domains) if it's missing or malformed — a bad domain selection should fail
+ *  loudly at startup, not silently fall back to Godot.
+ *  @param {string} name @param {string} [frameworkDir] @returns {DomainDescriptor} */
 export function loadDomain(name, frameworkDir = SELF_FRAMEWORK_DIR) {
   const domainsDir = path.join(frameworkDir, "domains");
   const file = path.join(domainsDir, name, "domain.json");
@@ -141,9 +183,8 @@ export function loadDomain(name, frameworkDir = SELF_FRAMEWORK_DIR) {
   return normalizeDescriptor(raw, name);
 }
 
-/** Convenience: resolve the active domain name and load its descriptor in one call.
- *  @param {string} [frameworkDir]
- *  @returns {DomainDescriptor} */
-export function resolveActiveDomain(frameworkDir = SELF_FRAMEWORK_DIR) {
-  return loadDomain(resolveDomainName(frameworkDir), frameworkDir);
+/** Convenience: resolve the active domain for a project and load its descriptor in one call.
+ *  @param {string} projectDir @param {string} [frameworkDir] @returns {DomainDescriptor} */
+export function resolveActiveDomain(projectDir, frameworkDir = SELF_FRAMEWORK_DIR) {
+  return loadDomain(resolveDomainName(projectDir, frameworkDir), frameworkDir);
 }

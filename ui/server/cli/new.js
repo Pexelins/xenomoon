@@ -1,35 +1,74 @@
-// forge new — take a folder to a runnable, framework-driven game in one step: scaffold the
-// starter (when empty), remember the path, and materialize the plugin's per-game files
-// (tools copied, library symlinked — both gitignored), then health-check.
+// forge new — install the framework for a project in one step: lock the project to a domain,
+// scaffold a starter ONLY when the domain ships one and the folder is empty (otherwise wire an
+// existing project in place — never scaffolding over your code), remember the path, materialize
+// the domain's per-project files, then health-check.
 //
-// The framework's agents/skills are NOT copied into the game — they load from the xenodot
+// The framework's agents/skills are NOT copied into the project — they load from the domain's
 // plugin: automatically in the web UI, and in terminal Claude Code after a one-time
-// `/plugin install` (printed by doctor). The committed game stays pure game.
+// `/plugin install` (printed by doctor). The committed project stays pure.
 //
-// Usage: npm run new -- ../mygame      (scaffold an empty folder, or wire an existing Godot project)
-import { existsSync, cpSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
+// Usage:
+//   npm run new -- ../mygame                 (godot by default; scaffold or wire in place)
+//   npm run new -- ../myapp --domain=app     (install the `app` domain into an existing project)
+//
+// The chosen domain is written as a project-owned lock (.xenodot-project.json), committed with
+// the project so the binding travels and the framework can't later drive it as the wrong domain.
+import {
+  existsSync,
+  mkdirSync,
+  cpSync,
+  readFileSync,
+  appendFileSync,
+  writeFileSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveActiveDomain } from "../core/domain-resolver.js";
+import {
+  loadDomain,
+  readProjectLock,
+  writeProjectLock,
+  PROJECT_LOCK_FILE,
+  DEFAULT_DOMAIN,
+} from "../core/domain-resolver.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
-// The active domain pack decides the project marker to detect and the starter to scaffold.
-// Default "godot" → project.godot + the existing starter/, so behavior is unchanged.
-const DOMAIN = resolveActiveDomain(FRAMEWORK_DIR);
 
+// Parse argv: a positional target path + an optional `--domain=<name>` / `--domain <name>`.
 const argv = process.argv.slice(2);
-const target = path.resolve(
-  argv.find((a) => !a.startsWith("--")) ?? path.join(FRAMEWORK_DIR, "..", "game"),
-);
+let domainFlag = null;
+const positional = [];
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === undefined) continue;
+  if (a.startsWith("--domain=")) domainFlag = a.slice("--domain=".length);
+  else if (a === "--domain") domainFlag = argv[++i] ?? null;
+  else if (!a.startsWith("--")) positional.push(a);
+}
+const target = path.resolve(positional[0] ?? path.join(FRAMEWORK_DIR, "..", "game"));
+
+// Determine the install domain: explicit flag wins; else an existing lock (re-install); else the
+// default. A flag that contradicts an existing lock is refused — re-domaining is deliberate.
+const existingLock = readProjectLock(target);
+if (domainFlag && existingLock && domainFlag !== existingLock) {
+  console.error(
+    `new: ${target} is already installed for domain "${existingLock}"; refusing to re-domain to ` +
+      `"${domainFlag}". Remove ${path.join(target, PROJECT_LOCK_FILE)} first to override.`,
+  );
+  process.exit(1);
+}
+const domainName = domainFlag ?? existingLock ?? DEFAULT_DOMAIN;
+const DOMAIN = loadDomain(domainName, FRAMEWORK_DIR);
+// Propagate to the spawned child steps so they resolve the same domain (they also read the lock).
+process.env.XENODOT_DOMAIN = domainName;
 
 /** Run a child step, inheriting stdio so its output streams through. @param {string[]} args */
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });
 
-/** Make sure the game ignores the framework's generated/working paths, so they're never
- * committed (the scaffolded starter already lists these; this covers an existing project).
- * @param {string} dir */
+/** Make sure the project ignores the framework's generated/working paths, so they're never
+ * committed (the scaffolded starter already lists these; this covers an existing project). The
+ * domain lock itself is intentionally NOT ignored — it is committed with the project. @param {string} dir */
 function ensureIgnores(dir) {
   const file = path.join(dir, ".gitignore");
   const need = [
@@ -56,25 +95,37 @@ function ensureIgnores(dir) {
   console.log(`new: added ${missing.length} ignore rule(s) to ${file}`);
 }
 
-// 1. Scaffold the starter (project + thin CLAUDE.md + .claude/settings.json + .gitignore)
-//    into an empty/new target. An existing Godot project is kept and wired in place.
-if (!existsSync(path.join(target, DOMAIN.engine.projectFile))) {
-  cpSync(path.join(FRAMEWORK_DIR, DOMAIN.starter), target, { recursive: true });
-  console.log(`new: scaffolded starter → ${target}`);
-} else {
+// 0. Ensure the target exists, then lock it to its domain (deterministic, committed). Written
+//    first so the child steps below resolve the same domain from the lock.
+mkdirSync(target, { recursive: true });
+writeProjectLock(target, domainName);
+console.log(`new: locked ${target} to domain "${domainName}" (${PROJECT_LOCK_FILE}).`);
+
+// 1. Scaffold the domain's starter into an empty/new target — ONLY if the domain ships one. An
+//    existing project (marker present) or a starterless domain is wired in place, never overwritten.
+const marker = path.join(target, DOMAIN.engine.projectFile);
+if (existsSync(marker)) {
   console.log(`new: ${target} already has a ${DOMAIN.engine.projectFile} — wiring it in place.`);
+} else if (DOMAIN.starter) {
+  cpSync(path.join(FRAMEWORK_DIR, DOMAIN.starter), target, { recursive: true });
+  console.log(`new: scaffolded ${DOMAIN.label} starter → ${target}`);
+} else {
+  console.log(
+    `new: ${target} has no ${DOMAIN.engine.projectFile} and the ${DOMAIN.label} domain ships no ` +
+      `starter — installing into it as-is (bring your own project).`,
+  );
 }
 ensureIgnores(target);
 
 // 2. Remember the path (writes .xenodot.json).
 node(path.join(here, "setup.js"), target);
 
-// 3. Materialize the plugin's per-game files: tools/ copied, library/ symlinked.
+// 3. Materialize the domain's per-project files: tools/ copied, library/ symlinked (if any).
 node(path.join(here, "materialize.js"), target);
 
 // 4. Health check — fails loudly if anything didn't land.
 node(path.join(here, "doctor.js"), target);
 
 console.log(
-  `\nnew: done. Next:\n    npm start ${target}      # web UI — loads the xenodot plugin automatically\n  or open ${target} in terminal Claude Code after the one-time /plugin install above.`,
+  `\nnew: done (domain "${domainName}"). Next:\n    npm start ${target}      # web UI — loads the domain plugin automatically\n  or open ${target} in terminal Claude Code after the one-time /plugin install above.`,
 );

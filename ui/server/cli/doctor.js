@@ -14,6 +14,7 @@ import {
   FRAMEWORK_PLUGIN_DIR,
   ENGINE,
   ENGINE_LABEL,
+  DOMAIN,
   RES_ASSET_MOUNT,
 } from "../core/config.js";
 import { prepareGame } from "./materialize.js";
@@ -79,9 +80,13 @@ const checks = [
     label: "xenodot plugin manifest present",
   },
   {
-    ok: pluginAgents > 0 && pluginSkills > 0,
-    hard: true,
-    label: `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`,
+    // A populated domain (godot) must ship capabilities; an empty domain starts with none and
+    // learns them per project — so this is only a HARD check when the domain is populated.
+    ok: DOMAIN.populated ? pluginAgents > 0 && pluginSkills > 0 : true,
+    hard: DOMAIN.populated,
+    label: DOMAIN.populated
+      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`
+      : `${DOMAIN.label} domain starts empty (0 agents, 0 skills) — learns the project`,
   },
   {
     ok: existsSync(path.join(PROJECT_DIR, ENGINE.projectFile)),
@@ -89,9 +94,13 @@ const checks = [
     label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
   },
   {
-    ok: existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")),
-    hard: true,
-    label: "tools/ materialized into the game (gitignored)",
+    // godot ships tools/validate.sh (the verify gate), materialized into the project; an empty
+    // domain may have no tools yet, so this is hard only when the domain is populated.
+    ok: DOMAIN.populated ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")) : true,
+    hard: DOMAIN.populated,
+    label: DOMAIN.populated
+      ? "tools/ materialized into the project (gitignored)"
+      : "tools/ — none yet (empty domain)",
   },
   {
     ok: Boolean(ENGINE.bin),

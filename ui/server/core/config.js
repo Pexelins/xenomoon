@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { resolveEngineBin } from "./engine-bin.js";
-import { loadDomain, DEFAULT_DOMAIN } from "./domain-resolver.js";
+import { resolveActiveDomain } from "./domain-resolver.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** The ui/ directory (this file lives in ui/server/core/). */
@@ -55,23 +55,6 @@ const SAVED = (() => {
   }
 })();
 
-/** The active target domain pack (see ui/server/core/domain-resolver.js). The spine reads
- * per-domain values (engine/project marker, inventory extensions, starter) from this
- * descriptor instead of hardcoding them. "godot" — the default — reproduces the framework's
- * original behavior, so nothing changes until a domain is chosen. Selection (first hit wins):
- * env XENODOT_DOMAIN → `.xenodot.json` `domain` → "godot". */
-export const DOMAIN = loadDomain(
-  process.env.XENODOT_DOMAIN ?? SAVED.domain ?? DEFAULT_DOMAIN,
-  FRAMEWORK_DIR,
-);
-
-/** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
- * Claude Code plugin — the single source of truth, loaded into every session via the SDK
- * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
- * and the plugin provides the framework regardless of cwd. The path comes from the domain pack
- * (`godot` → the top-level `plugin/`); a non-godot domain ships its own under `domains/<name>/`. */
-export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
-
 /** Where the framework reads the game project from. The framework is
  * independent of the project: it points at this folder in place and never
  * vendors or tracks it. Resolution order (first hit wins):
@@ -89,6 +72,21 @@ function resolveProjectDir() {
 }
 
 export const PROJECT_DIR = resolveProjectDir();
+
+/** The active target domain pack (see ui/server/core/domain-resolver.js). The spine reads
+ * per-domain values (engine/project marker, inventory extensions, plugin, orchestrator,
+ * commands) from this descriptor instead of hardcoding them. The PROJECT's lock
+ * (`.xenodot-project.json`, written by `forge new --domain`) is authoritative; a conflicting
+ * env `XENODOT_DOMAIN` / `.xenodot.json` override is refused (no silent override). With no
+ * lock: override → "godot" (which reproduces the framework's original behavior). */
+export const DOMAIN = resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
+
+/** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
+ * Claude Code plugin — the single source of truth, loaded into every session via the SDK
+ * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
+ * and the plugin provides the framework regardless of cwd. The path comes from the domain pack
+ * (`godot` → the top-level `plugin/`); a non-godot domain ships its own under `domains/<name>/`. */
+export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
 
 /** The target engine: Godot or a source-compatible fork (Redot / Blazium). The
  * forks share Godot's project format, scene files, GDScript and CLI, so swapping

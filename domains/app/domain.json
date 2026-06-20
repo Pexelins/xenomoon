@@ -1,0 +1,21 @@
+{
+  "name": "app",
+  "label": "App",
+  "description": "Empty starter package for application development (Node/web today). Ships NO pre-baked capabilities — it learns the project. Experimental POC; not a committed product surface.",
+  "populated": false,
+  "engine": {
+    "name": "node",
+    "projectFile": "package.json"
+  },
+  "inventory": {
+    "scenes": [],
+    "scripts": [".js", ".ts", ".jsx", ".tsx"]
+  },
+  "plugin": "domains/app/plugin",
+  "orchestrator": "domains/app/orchestrator.md",
+  "commands": {
+    "build": "npm run build --if-present",
+    "lint": "npm run lint --if-present",
+    "test": "npm test --if-present"
+  }
+}
