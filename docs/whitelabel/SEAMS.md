@@ -59,10 +59,13 @@ A single case-preserving `/xenodot/gi` pass covers every form above.
   (`github.com/arthur0n/xenodot-forge`, `raw.githubusercontent.com/arthur0n/...`,
   clone/marketplace instructions). Rewriting these would break the `upstream` remote
   references and point forkers at a repo that doesn't exist.
-- **`docs/whitelabel/**`and the two`scripts/`machinery files** — they intentionally
-mention the literal`xenodot` to document the rename; the codemod skips them.
-- **Binary assets** (images, fonts, models, archives) — skipped by extension and by
-  null-byte detection.
+- **Untracked / gitignored files** — the codemod runs over `git ls-files` only, so local
+  state (`.xenodot.json`, `logs/`, `node_modules/`, `vendor/`, a nested game dir, materialized
+  `tools/`) is never read or rewritten.
+- The codemod's **own machinery** — `scripts/rebrand.mjs`, `scripts/sync-upstream.sh`, and
+  everything under the `docs/whitelabel/` folder — intentionally mentions the literal `xenodot`
+  to document the rename, so it is skipped.
+- **Binary assets** (images, fonts, models, archives) — skipped by extension and null-byte detection.
 
 ## Invariant
 

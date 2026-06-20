@@ -25,15 +25,13 @@
 //     mention the literal "xenodot" and must not be rewritten.
 
 /* global process, console */
-import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, extname, sep } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 const CHECK_ONLY = process.argv.includes("--check");
-
-// Directories never walked.
-const SKIP_DIRS = new Set([".git", "node_modules", "vendor", "dist", "coverage"]);
 
 // Files/paths whose literal "xenodot" must be preserved (our own machinery + docs
 // that describe the rename). Relative to repo root, POSIX-style.
@@ -42,11 +40,31 @@ const SKIP_PREFIXES = ["docs/whitelabel/"];
 
 // Binary / non-text extensions we never read as text.
 const BINARY_EXT = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp",
-  ".glb", ".gltf", ".bin", ".wasm",
-  ".woff", ".woff2", ".ttf", ".otf", ".eot",
-  ".mp3", ".wav", ".ogg", ".mp4", ".mov",
-  ".zip", ".gz", ".tar", ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".bmp",
+  ".glb",
+  ".gltf",
+  ".bin",
+  ".wasm",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".mp4",
+  ".mov",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".pdf",
 ]);
 
 // A LINE is left untouched if it references the upstream repo. Keeps provenance
@@ -78,32 +96,31 @@ function isSkipped(rel) {
   return SKIP_PREFIXES.some((p) => rel.startsWith(p));
 }
 
-function* walk(dir) {
-  for (const name of readdirSync(dir)) {
-    const abs = join(dir, name);
-    const st = statSync(abs);
-    if (st.isDirectory()) {
-      if (SKIP_DIRS.has(name)) continue;
-      yield* walk(abs);
-    } else if (st.isFile()) {
-      yield abs;
-    }
-  }
+/** Files that SHIP — git-tracked only, so gitignored local state (.xenodot.json, logs/,
+ *  node_modules/, vendor/, a nested game dir, materialized tools) is never touched. The
+ *  codemod always runs at the tip of a git branch, so git is available. @returns {string[]} */
+function trackedFiles() {
+  const out = execFileSync("git", ["ls-files", "-z"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return out.split("\0").filter(Boolean);
 }
 
 const changedFiles = [];
 const pathWarnings = [];
 
-for (const abs of walk(ROOT)) {
-  const rel = relative(ROOT, abs).split(sep).join("/");
+for (const rel of trackedFiles()) {
   if (isSkipped(rel)) continue;
 
-  // We never rename file PATHS here (none are expected); warn if one shows up so
-  // a human decides, instead of silently leaving a half-rebrand.
+  // We never rename file PATHS here (none are expected); warn if a tracked path ever
+  // carries "xenodot" so a human renames it, instead of leaving a half-rebrand.
   if (/xenodot/i.test(rel)) pathWarnings.push(rel);
 
-  if (BINARY_EXT.has(extname(abs).toLowerCase())) continue;
+  if (BINARY_EXT.has(extname(rel).toLowerCase())) continue;
 
+  const abs = join(ROOT, rel);
   const buf = readFileSync(abs);
   if (buf.includes(0)) continue; // null byte => binary, skip
   const text = buf.toString("utf8");
