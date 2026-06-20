@@ -24,12 +24,13 @@ import {
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJSON } from "../../lib/json.js";
 import {
   loadDomain,
   readProjectLock,
   writeProjectLock,
   PROJECT_LOCK_FILE,
-  DEFAULT_DOMAIN,
+  availableDomains,
 } from "../core/domain-resolver.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
@@ -58,7 +59,16 @@ if (domainFlag && existingLock && domainFlag !== existingLock) {
   );
   process.exit(1);
 }
-const domainName = domainFlag ?? existingLock ?? DEFAULT_DOMAIN;
+const domainName = domainFlag ?? existingLock;
+if (!domainName) {
+  const avail = availableDomains(FRAMEWORK_DIR);
+  console.error(
+    "new: no domain given. Pass --domain <name>" +
+      (avail.length ? ` (available: ${avail.join(", ")})` : "") +
+      `\n  e.g. npm run new -- ${positional[0] ?? "../myapp"} --domain app`,
+  );
+  process.exit(1);
+}
 const DOMAIN = loadDomain(domainName, FRAMEWORK_DIR);
 // Propagate to the spawned child steps so they resolve the same domain (they also read the lock).
 process.env.XENOMOON_DOMAIN = domainName;
@@ -95,11 +105,20 @@ function ensureIgnores(dir) {
   console.log(`new: added ${missing.length} ignore rule(s) to ${file}`);
 }
 
-// 0. Ensure the target exists, then lock it to its domain (deterministic, committed). Written
-//    first so the child steps below resolve the same domain from the lock.
+// 0. Ensure the target exists. How the binding is remembered depends on the domain:
+//    - materialize domains (Godot) write a project-owned lock, committed so it travels with the
+//      project (the child steps also resolve it via the XENOMOON_DOMAIN env set above).
+//    - every other domain stays OUT of the project entirely — the binding lives in the framework's
+//      own .xenomoon.json (domain persisted in step 2b), so the project is never touched.
 mkdirSync(target, { recursive: true });
-writeProjectLock(target, domainName);
-console.log(`new: locked ${target} to domain "${domainName}" (${PROJECT_LOCK_FILE}).`);
+if (DOMAIN.materializeIntoProject) {
+  writeProjectLock(target, domainName);
+  console.log(`new: locked ${target} to domain "${domainName}" (${PROJECT_LOCK_FILE}).`);
+} else {
+  console.log(
+    `new: domain "${domainName}" writes nothing into ${target} — bound via the framework's .xenomoon.json.`,
+  );
+}
 
 // 1. Scaffold the domain's starter into an empty/new target — ONLY if the domain ships one. An
 //    existing project (marker present) or a starterless domain is wired in place, never overwritten.
@@ -115,10 +134,26 @@ if (existsSync(marker)) {
       `starter — installing into it as-is (bring your own project).`,
   );
 }
-ensureIgnores(target);
+if (DOMAIN.materializeIntoProject) ensureIgnores(target);
 
-// 2. Remember the path (writes .xenomoon.json).
+// 2. Remember the path (writes .xenomoon.json projectDir).
 node(path.join(here, "setup.js"), target);
+
+// 2b. A non-materialize domain writes no project lock, so the framework must remember the domain
+//     itself — persist it into .xenomoon.json beside the path (materialize domains rely on the
+//     committed project lock instead).
+if (!DOMAIN.materializeIntoProject) {
+  const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
+  /** @type {Record<string, unknown>} */
+  let cfg = {};
+  try {
+    cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
+  } catch {
+    /* absent/invalid — start fresh */
+  }
+  writeFileSync(cfgFile, JSON.stringify({ ...cfg, domain: domainName }, null, 2) + "\n");
+  console.log(`new: bound domain "${domainName}" in ${cfgFile}.`);
+}
 
 // 3. Materialize the domain's per-project files: tools/ copied, library/ symlinked (if any).
 node(path.join(here, "materialize.js"), target);

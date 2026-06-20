@@ -5,13 +5,16 @@
   "populated": true,
   "engine": {
     "name": "godot",
-    "projectFile": "project.godot"
+    "projectFile": "project.godot",
+    "needsBinary": true
   },
   "inventory": {
     "scenes": [".tscn"],
-    "scripts": [".gd"]
+    "scripts": [".gd"],
+    "ignore": []
   },
   "starter": "starter",
+  "materializeIntoProject": true,
   "plugin": "plugin",
   "orchestrator": "ui/orchestrator.md",
   "commands": {

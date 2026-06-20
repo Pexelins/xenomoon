@@ -1,15 +1,14 @@
 // Domain resolver — the seam that lets the (domain-agnostic) spine ask for the values
 // that change per target domain instead of hardcoding them. A "domain pack" lives at
 // domains/<name>/ and declares those values in domain.json. The spine never branches on
-// the domain name; it reads the resolved descriptor. The default domain is "godot", whose
-// descriptor reproduces the framework's original hardcoded values, so behavior is
-// unchanged until a different domain is selected.
+// the domain name; it reads the resolved descriptor. There is NO privileged default domain: the
+// binding must be explicit, so a project is never silently driven as the wrong domain.
 //
 // A domain is bound to a project DETERMINISTICALLY at install time: `forge new --domain <name>`
 // writes a project lock (PROJECT_LOCK_FILE) into the project. At runtime the spine reads that
 // lock as AUTHORITATIVE — an explicit override (env / framework config) that disagrees is
 // refused, never silently applied. Resolution when no lock exists: env XENOMOON_DOMAIN ->
-// framework .xenomoon.json "domain" -> "godot".
+// framework .xenomoon.json "domain". If NEITHER is set, resolution THROWS (no fallback).
 //
 // This module is ADDITIVE (no upstream file owns it), so it never conflicts on an upstream
 // pull. The few spine files that consult it are listed in docs/whitelabel/SEAMS.md.
@@ -17,9 +16,6 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
-
-/** Default domain — its descriptor mirrors the framework's original Godot behavior. */
-export const DEFAULT_DOMAIN = "godot";
 
 /** A project's domain lock, written into the project by install — DISTINCT from the framework's
  *  own `.xenomoon.json` (which lives at the framework root). Committed with the project so the
@@ -36,10 +32,16 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  * @property {boolean} populated whether the domain ships pre-baked capabilities (godot) or
  *           starts empty and learns the project (new domains). Drives whether `doctor`'s
  *           agent/skill/tool checks are hard or informational.
- * @property {{ name: string, projectFile: string }} engine
- *           on-disk project marker + engine/runtime name
- * @property {{ scenes: string[], scripts: string[] }} inventory
- *           file extensions the live project inventory scans for
+ * @property {{ name: string, projectFile: string, needsBinary: boolean }} engine
+ *           on-disk project marker + engine/runtime name; needsBinary = the engine runs through an
+ *           external binary the verify gate resolves/exports (Godot family) vs. package scripts (Node)
+ * @property {{ scenes: string[], scripts: string[], ignore: string[] }} inventory
+ *           file extensions the live project inventory scans for, plus directory names to skip
+ *           (e.g. node_modules, dist) — dot-dirs are always skipped
+ * @property {boolean} materializeIntoProject whether install writes framework working files INTO the
+ *           project tree (tools/ library/ x-shared-assets/ .xenomoon/ + a committed lock + .gitignore
+ *           rules) — true only for a domain that needs real files at a project path (Godot's res://).
+ *           Default false: the framework writes nothing into the bound project.
  * @property {string|null} starter starter folder to scaffold (relative to the framework dir),
  *           or null for an install-into-existing domain that never scaffolds
  * @property {string} plugin    capability plugin dir, relative to the framework dir
@@ -48,7 +50,7 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  */
 
 /** Raw parsed domain.json — every leaf is `unknown` until validated. */
-/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown }, starter?: unknown, plugin?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
+/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown, needsBinary?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
 
 /** @param {unknown} v @returns {boolean} */
 const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
@@ -56,6 +58,9 @@ const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
 const strOr = (v, fallback) => (typeof v === "string" && v ? v : fallback);
 /** A plain object (commands map) or absent — rejects arrays/primitives. @param {unknown} v @returns {boolean} */
 const isObjectOrAbsent = (v) => v == null || (typeof v === "object" && !Array.isArray(v));
+/** An optional string[] domain field, normalized to an array (empty if absent/invalid).
+ *  @param {unknown} v @returns {string[]} */
+const strArrayOr = (v) => (Array.isArray(v) ? /** @type {string[]} */ (v) : []);
 
 /** Read a `domain` string from a JSON file, or null if the file/key is absent or invalid.
  *  @param {string} file @returns {string|null} */
@@ -75,8 +80,12 @@ function readDomainKey(file) {
 function normalizeDescriptor(raw, name) {
   const engineName = raw.engine?.name;
   const projectFile = raw.engine?.projectFile;
-  const scenes = raw.inventory?.scenes;
-  const scripts = raw.inventory?.scripts;
+  const inv = /** @type {{ scenes?: unknown, scripts?: unknown, ignore?: unknown }} */ (
+    raw.inventory ?? {}
+  );
+  const scenes = inv.scenes;
+  const scripts = inv.scripts;
+  const ignore = inv.ignore;
   const starter = raw.starter;
   const plugin = raw.plugin;
   const orchestrator = raw.orchestrator;
@@ -103,16 +112,25 @@ function normalizeDescriptor(raw, name) {
     engine: {
       name: /** @type {string} */ (engineName),
       projectFile: /** @type {string} */ (projectFile),
+      // Optional: does this engine run via an external binary (Godot family) vs package scripts
+      // (Node)? Default false — a new domain needs no $GODOT-style probe.
+      needsBinary: raw.engine?.needsBinary === true,
     },
     inventory: {
       scenes: /** @type {string[]} */ (scenes),
       scripts: /** @type {string[]} */ (scripts),
+      // Optional: directory names the inventory scan skips (e.g. node_modules). Defaults to none,
+      // preserving the godot domain's whole-tree scan.
+      ignore: strArrayOr(ignore),
     },
     // Optional: a domain that only installs into existing projects (e.g. app) declares no starter.
     starter: isNonEmptyString(starter) ? /** @type {string} */ (starter) : null,
     plugin: /** @type {string} */ (plugin),
     orchestrator: /** @type {string} */ (orchestrator),
     commands: /** @type {Record<string,string>} */ (commands ?? {}),
+    // Optional: write framework working files INTO the project tree? Default false (agnostic) — only
+    // a domain that needs real files at a project path (Godot's res://) opts in with true.
+    materializeIntoProject: raw.materializeIntoProject === true,
   };
 }
 
@@ -140,8 +158,20 @@ function readRequestedDomain(frameworkDir) {
   return readDomainKey(path.join(frameworkDir, ".xenomoon.json"));
 }
 
+/** Names of the available domain packs (immediate subdirs of domains/). @param {string} [frameworkDir]
+ *  @returns {string[]} */
+export function availableDomains(frameworkDir = SELF_FRAMEWORK_DIR) {
+  const domainsDir = path.join(frameworkDir, "domains");
+  return existsSync(domainsDir)
+    ? readdirSync(domainsDir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name)
+    : [];
+}
+
 /** Resolve the active domain NAME for a project. The project's lock is AUTHORITATIVE; an explicit
- *  override that disagrees is REFUSED (no silent override). With no lock: override -> DEFAULT_DOMAIN.
+ *  override that disagrees is REFUSED (no silent override). There is NO default: with neither a lock
+ *  nor an override, resolution THROWS — a project is never silently driven as some fallback domain.
  *  @param {string} projectDir @param {string} [frameworkDir] @returns {string} */
 export function resolveDomainName(projectDir, frameworkDir = SELF_FRAMEWORK_DIR) {
   const locked = readProjectLock(projectDir);
@@ -153,22 +183,26 @@ export function resolveDomainName(projectDir, frameworkDir = SELF_FRAMEWORK_DIR)
         `re-install the project for "${requested}".`,
     );
   }
-  return locked ?? requested ?? DEFAULT_DOMAIN;
+  const name = locked ?? requested;
+  if (!name) {
+    const avail = availableDomains(frameworkDir);
+    throw new Error(
+      `no domain bound for ${projectDir}: set "domain" in the framework's .xenomoon.json, pass ` +
+        "XENOMOON_DOMAIN, or install with `forge new --domain <name>`" +
+        (avail.length ? ` (available: ${avail.join(", ")})` : ""),
+    );
+  }
+  return name;
 }
 
 /** Load + validate a domain descriptor from domains/<name>/domain.json. Throws a clear error
  *  (listing available domains) if it's missing or malformed — a bad domain selection should fail
- *  loudly at startup, not silently fall back to Godot.
+ *  loudly at startup, never silently fall back to another domain.
  *  @param {string} name @param {string} [frameworkDir] @returns {DomainDescriptor} */
 export function loadDomain(name, frameworkDir = SELF_FRAMEWORK_DIR) {
-  const domainsDir = path.join(frameworkDir, "domains");
-  const file = path.join(domainsDir, name, "domain.json");
+  const file = path.join(frameworkDir, "domains", name, "domain.json");
   if (!existsSync(file)) {
-    const available = existsSync(domainsDir)
-      ? readdirSync(domainsDir, { withFileTypes: true })
-          .filter((e) => e.isDirectory())
-          .map((e) => e.name)
-      : [];
+    const available = availableDomains(frameworkDir);
     throw new Error(
       `domain "${name}": no descriptor at ${path.relative(frameworkDir, file)}` +
         (available.length ? ` (available: ${available.join(", ")})` : ""),

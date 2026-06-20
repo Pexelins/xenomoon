@@ -28,7 +28,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { FRAMEWORK_PLUGIN_DIR, ASSET_LIBRARY, RES_ASSET_MOUNT } from "../core/config.js";
+import { FRAMEWORK_PLUGIN_DIR, ASSET_LIBRARY, RES_ASSET_MOUNT, DOMAIN } from "../core/config.js";
 import { generateManifest } from "./gen-manifest.js";
 
 const TOOLS_SRC = path.join(FRAMEWORK_PLUGIN_DIR, "tools");
@@ -139,6 +139,18 @@ export function ensureAssetLibraryLink(projectDir) {
  * the external shared-asset library mounted.
  * @param {string} projectDir */
 export function prepareGame(projectDir) {
+  // Agnostic default: write NOTHING into the bound project unless the domain opts in. Godot needs
+  // real files at res://; app (and any future domain) binds purely from the framework's own
+  // .xenomoon.json, so the project stays pristine. A no-op return keeps every caller
+  // (server startup, doctor, forge new, the CLI) silent and side-effect-free.
+  if (!DOMAIN.materializeIntoProject) {
+    return {
+      tools: { copied: 0, fresh: 0 },
+      lib: { linked: false, reason: "domain materializes nothing into the project" },
+      assets: { linked: false, reason: "domain materializes nothing into the project" },
+      manifest: null,
+    };
+  }
   const tools = materializeTools(projectDir);
   const lib = ensureLibraryLink(projectDir);
   const assets = ensureAssetLibraryLink(projectDir);

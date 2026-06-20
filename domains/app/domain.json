@@ -5,12 +5,15 @@
   "populated": false,
   "engine": {
     "name": "node",
-    "projectFile": "package.json"
+    "projectFile": "package.json",
+    "needsBinary": false
   },
   "inventory": {
     "scenes": [],
-    "scripts": [".js", ".ts", ".jsx", ".tsx"]
+    "scripts": [".js", ".ts", ".jsx", ".tsx"],
+    "ignore": ["node_modules", "dist", "build", "out", "coverage"]
   },
+  "materializeIntoProject": false,
   "plugin": "domains/app/plugin",
   "orchestrator": "domains/app/orchestrator.md",
   "commands": {

@@ -103,23 +103,34 @@ const checks = [
       : "tools/ — none yet (empty domain)",
   },
   {
-    ok: Boolean(ENGINE.bin),
+    // Only the Godot family runs an external engine binary; other runtimes (Node) drive their
+    // toolchain through package scripts, so there is no $GODOT to resolve.
+    ok: DOMAIN.engine.needsBinary ? Boolean(ENGINE.bin) : true,
     hard: false,
-    label: ENGINE.bin
-      ? `${ENGINE_LABEL} binary resolved ($GODOT=${ENGINE.bin})`
-      : `${ENGINE_LABEL} binary not found — set GODOT=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
+    label: !DOMAIN.engine.needsBinary
+      ? `${ENGINE_LABEL} toolchain via package scripts (no engine binary needed)`
+      : ENGINE.bin
+        ? `${ENGINE_LABEL} binary resolved ($GODOT=${ENGINE.bin})`
+        : `${ENGINE_LABEL} binary not found — set GODOT=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
   },
-  {
-    ok: existsSync(path.join(PROJECT_DIR, ".xenomoon", "manifest.json")),
-    hard: false,
-    label: "facts manifest generated (.xenomoon/manifest.json)",
-  },
-  { ok: libraryLinked(), hard: false, label: "library/ symlinked to the plugin" },
-  {
-    ok: assetLibraryLinked(),
-    hard: false,
-    label: `${RES_ASSET_MOUNT}/ symlinked to the external asset library`,
-  },
+  // The materialized-into-project artifacts (facts manifest, library + asset symlinks) only exist
+  // for a domain that opts into writing files into the project tree (Godot). Omit the rows entirely
+  // for a domain that materializes nothing, rather than show them perpetually "—".
+  ...(DOMAIN.materializeIntoProject
+    ? [
+        {
+          ok: existsSync(path.join(PROJECT_DIR, ".xenomoon", "manifest.json")),
+          hard: false,
+          label: "facts manifest generated (.xenomoon/manifest.json)",
+        },
+        { ok: libraryLinked(), hard: false, label: "library/ symlinked to the plugin" },
+        {
+          ok: assetLibraryLinked(),
+          hard: false,
+          label: `${RES_ASSET_MOUNT}/ symlinked to the external asset library`,
+        },
+      ]
+    : []),
   { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
 ];
 

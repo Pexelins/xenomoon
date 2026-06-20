@@ -88,8 +88,15 @@ try {
   });
 
   // ---- forge new → a fresh game, then assert it's wired AND pure ----
+  // Domain is now explicit (no privileged default) — this onboarding path tests the godot domain.
   const game = path.join(work, "game");
-  execFileSync("node", [path.join(fw, "ui", "server", "cli", "new.js"), game], { stdio: "pipe" });
+  execFileSync(
+    "node",
+    [path.join(fw, "ui", "server", "cli", "new.js"), game, "--domain", "godot"],
+    {
+      stdio: "pipe",
+    },
+  );
 
   check("forge new scaffolds a runnable, wired game", () => {
     assert.ok(existsSync(path.join(game, "project.godot")), "project.godot scaffolded");

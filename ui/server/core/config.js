@@ -156,15 +156,19 @@ export const ASSET_LIBRARY = path.resolve(
 // the chosen binary — killing the per-shell `GODOT=…` re-derivation that otherwise repeats on
 // every Bash call. Precedence: an explicit engine.bin (env/.xenomoon.json) wins untouched; else,
 // when nothing is configured, auto-probe and PERSIST the result so the lookup is truly one-time.
-// Load-time side effect, by design.
-if (ENGINE.bin) {
-  process.env.GODOT = ENGINE.bin;
-} else {
-  const resolved = resolveEngineBin(ENGINE.name);
-  if (resolved) {
-    ENGINE.bin = resolved;
-    process.env.GODOT = resolved;
-    persistEngineBin(resolved);
+// Load-time side effect, by design. Skipped for engines without a binary (e.g. Node), which run
+// their toolchain via package scripts and have no $GODOT to export — gated on the bound domain's
+// engine.needsBinary, not the engine name, so the spine never special-cases "godot".
+if (DOMAIN.engine.needsBinary) {
+  if (ENGINE.bin) {
+    process.env.GODOT = ENGINE.bin;
+  } else {
+    const resolved = resolveEngineBin(ENGINE.name);
+    if (resolved) {
+      ENGINE.bin = resolved;
+      process.env.GODOT = resolved;
+      persistEngineBin(resolved);
+    }
   }
 }
 

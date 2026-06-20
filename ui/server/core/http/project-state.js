@@ -2,6 +2,7 @@
 // drifts from what's actually on disk.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
+import { parseJSON } from "../../../lib/json.js";
 import {
   PROJECT_DIR,
   PROJECT_FOUND,
@@ -17,14 +18,16 @@ import {
  * @param {string[]} exts
  * @param {string[]} [out]
  * @param {string} [base]
+ * @param {Set<string>} [ignore] directory names to skip (e.g. node_modules, dist); dot-dirs are always skipped
  * @returns {string[]}
  */
-function walk(dir, exts, out = [], base = dir) {
+function walk(dir, exts, out = [], base = dir, ignore) {
   if (!existsSync(dir)) return out;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith(".")) continue;
+    if (entry.isDirectory() && ignore?.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, exts, out, base);
+    if (entry.isDirectory()) walk(full, exts, out, base, ignore);
     else if (exts.some((e) => entry.name.endsWith(e))) out.push(path.relative(base, full));
   }
   return out;
@@ -81,11 +84,19 @@ export function projectState() {
   const dir = PROJECT_DIR;
   let name = path.basename(dir);
   try {
-    const match = readFileSync(path.join(dir, ENGINE.projectFile), "utf8").match(
-      /config\/name="([^"]+)"/,
-    );
-    if (match?.[1]) name = match[1];
+    const raw = readFileSync(path.join(dir, ENGINE.projectFile), "utf8");
+    // package.json (Node) → "name"; project.godot (Godot INI) → config/name="…".
+    if (ENGINE.projectFile.endsWith(".json")) {
+      const pkg = /** @type {{ name?: unknown }} */ (parseJSON(raw));
+      if (typeof pkg.name === "string" && pkg.name) name = pkg.name;
+    } else {
+      const m = raw.match(/config\/name="([^"]+)"/)?.[1];
+      if (m) name = m;
+    }
   } catch {}
+  // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
+  // Node repo's inventory from drowning in dependency files. Godot declares none (whole-tree scan).
+  const ignore = new Set(DOMAIN.inventory.ignore);
   return {
     name,
     dir,
@@ -110,8 +121,8 @@ export function projectState() {
         } catch {}
         return { path: f, title: firstHeading(full), verdict };
       }),
-    scenes: walk(dir, DOMAIN.inventory.scenes, [], dir),
-    scripts: walk(dir, DOMAIN.inventory.scripts, [], dir),
+    scenes: walk(dir, DOMAIN.inventory.scenes, [], dir, ignore),
+    scripts: walk(dir, DOMAIN.inventory.scripts, [], dir, ignore),
     // Capabilities come from the xenomoon plugin (the framework source); a game may also
     // carry its own unpromoted agents/skills in .claude/. Show both, plugin first.
     agents: collectAgents([

@@ -263,7 +263,7 @@ export async function loadState() {
   renderTab();
 }
 
-/** When the target folder has no Godot project, explain how to point the
+/** When the target folder has no bound project, explain how to point the
  * framework at one instead of showing silently-empty panels. The framework
  * only reads the project — it stays in your own repo, wherever it lives.
  * @param {import("../../../lib/types.js").ProjectState} s */
@@ -274,7 +274,7 @@ function renderBanner(s) {
     return;
   }
   banner.replaceChildren();
-  banner.append(el("strong", undefined, "No Godot project here yet."));
+  banner.append(el("strong", undefined, "No project bound here yet."));
   banner.append(el("div", "banner-path", `Looking in: ${s.dir.replace(/^\/Users\/[^/]+/, "~")}`));
   banner.append(
     el(
