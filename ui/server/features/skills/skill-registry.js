@@ -1,11 +1,14 @@
 // Skill-scope registry CORE — the read + inversion logic shared by the CLI validator
 // (cli/gen-skill-scope.js), the set_skill MCP tool, and the recalibration UI. The per-skill `agents:`
 // tag in each plugin/skills/*/SKILL.md is the source of truth; it inverts to a per-agent skill set
-// (projected into agent frontmatter). Deliberately node:fs-only — NO config.js — so it stays
-// side-effect-free for `npm run validate`. Paths resolve from this file's location.
+// (projected into agent frontmatter). Deliberately free of config.js (whose import triggers a
+// load-time domain/engine probe) — the one cross-module read is the side-effect-free domain-resolver,
+// to source the per-domain `builders` list — so it stays loadable under `npm run validate`. Paths
+// resolve from this file's location.
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadDomain } from "../../core/domain-resolver.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ui/server/features/skills
 const PLUGIN = path.join(HERE, "..", "..", "..", "..", "plugin");
@@ -16,9 +19,9 @@ export const AGENTS_DIR = path.join(PLUGIN, "agents");
  * `orchestrator`; its skill set is ORCHESTRATOR_FRAMEWORK_SKILLS (in skill-catalog.js). */
 export const ORCH = "@orchestrator";
 
-/** The code-writers (stable hardcoded alias). godot-dev is the core/general builder; the rest are
- * domain specialists split off from it so each stays under the ~10-skill index cap. @type {string[]} */
-export const BUILDERS = [
+/** The historical builder ids — the fallback if the reference domain's descriptor declares no
+ * `builders` (an older/empty domain.json). @type {string[]} */
+const FALLBACK_BUILDERS = [
   "godot-dev",
   "godot-refactor",
   "godot-combat",
@@ -26,6 +29,20 @@ export const BUILDERS = [
   "godot-visuals",
   "godot-assets",
 ];
+
+/** The code-writers, sourced from the reference domain that owns plugin/ (godot today; re-homing
+ * godot content into domains/godot/ is a later phase). Read via the side-effect-free domain-resolver
+ * — NOT config.js — so this stays loadable under `npm run validate` with no bound project. godot-dev
+ * is the core/general builder; the rest are specialists split off so each stays under the ~10-skill
+ * index cap. Falls back to the historical list if the descriptor is missing/empty. @type {string[]} */
+export const BUILDERS = (() => {
+  try {
+    const b = loadDomain("godot").builders;
+    return b.length ? b : FALLBACK_BUILDERS;
+  } catch {
+    return FALLBACK_BUILDERS;
+  }
+})();
 
 /** The frontmatter block (between the first two `---`) and the body that follows.
  * @param {string} text @returns {{ fm: string, body: string }} */

@@ -16,6 +16,14 @@
   "starter": "starter",
   "materializeIntoProject": true,
   "plugin": "plugin",
+  "builders": [
+    "godot-dev",
+    "godot-refactor",
+    "godot-combat",
+    "godot-player",
+    "godot-visuals",
+    "godot-assets"
+  ],
   "orchestrator": "ui/orchestrator.md",
   "commands": {
     "validate": "tools/validate.sh",

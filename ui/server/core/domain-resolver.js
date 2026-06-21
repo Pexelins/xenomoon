@@ -45,12 +45,14 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  * @property {string|null} starter starter folder to scaffold (relative to the framework dir),
  *           or null for an install-into-existing domain that never scaffolds
  * @property {string} plugin    capability plugin dir, relative to the framework dir
+ * @property {string[]} builders the code-writer agent ids the `builders` skill-audience token
+ *           resolves to (skill-scope registry). Empty for domains that declare none.
  * @property {string} orchestrator routing-prompt file, relative to the framework dir
  * @property {Record<string,string>} commands build/verify commands written into the manifest
  */
 
 /** Raw parsed domain.json — every leaf is `unknown` until validated. */
-/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown, needsBinary?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
+/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown, needsBinary?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
 
 /** @param {unknown} v @returns {boolean} */
 const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
@@ -88,6 +90,7 @@ function normalizeDescriptor(raw, name) {
   const ignore = inv.ignore;
   const starter = raw.starter;
   const plugin = raw.plugin;
+  const builders = raw.builders;
   const orchestrator = raw.orchestrator;
   const commands = raw.commands;
 
@@ -126,6 +129,9 @@ function normalizeDescriptor(raw, name) {
     // Optional: a domain that only installs into existing projects (e.g. app) declares no starter.
     starter: isNonEmptyString(starter) ? /** @type {string} */ (starter) : null,
     plugin: /** @type {string} */ (plugin),
+    // Optional: the code-writer agent ids the `builders` skill-audience token resolves to. Lives in
+    // the domain pack so skill scoping is per-domain, not hardcoded to godot's builders in the spine.
+    builders: strArrayOr(builders),
     orchestrator: /** @type {string} */ (orchestrator),
     commands: /** @type {Record<string,string>} */ (commands ?? {}),
     // Optional: write framework working files INTO the project tree? Default false (agnostic) — only
