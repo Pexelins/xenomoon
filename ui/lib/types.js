@@ -13,6 +13,8 @@
 /** Browser-safe Codex config (no secrets — auth lives in the local `codex` CLI). `vendored` =
  * the optional plugin has been cloned on disk. @typedef {{ enabled: boolean, vendored: boolean }} CodexPublicConfig */
 /** Verdict from probing the local Codex install (`POST /api/codex/check`). @typedef {{ ok: boolean, enabled: boolean, cli: boolean, version?: string, authOk: boolean, authMode?: string, authMethod?: "chatgpt" | "apiKey", model?: string, vendored: boolean, caveat?: string, error?: string }} CodexCheck */
+/** Browser-safe Godot-docs MCP config (no secrets — it queries the public docs site).
+ * @typedef {{ enabled: boolean }} DocsPublicConfig */
 /**
  * @typedef {object} ProjectState
  * @property {string} name
@@ -26,6 +28,7 @@
  * @property {string[]} skills
  * @property {HermesPublicConfig} hermes - external Hermes researcher config (key-free)
  * @property {CodexPublicConfig} codex - optional Codex reviewer config (secret-free)
+ * @property {DocsPublicConfig} docs - optional Godot-docs MCP config (secret-free)
  */
 
 /** @typedef {{ id: string, title: string, when: string }} RecentSession */
@@ -128,6 +131,10 @@
 
 // ---------- WebSocket messages ----------
 /** @typedef {{ role: "user" | "assistant", text: string }} HistoryItem */
+/** One in-flight sub-agent in the authoritative running-strip snapshot. The server
+ * owns this set (its `runningByTask` map); the client reconciles `state.running`
+ * against it so a missed lifecycle event self-heals on the next snapshot.
+ * @typedef {{ taskId: string, toolUseId: string, label: string, desc: string, started: number, background: boolean }} RunningAgentWire */
 /**
  * Server -> browser. Discriminated on `type`.
  * @typedef {(
@@ -139,6 +146,7 @@
  *   | { type: "policy", value: string }
  *   | { type: "history", items?: HistoryItem[] }
  *   | { type: "tasks", tasks: Task[] }
+ *   | { type: "running", agents: RunningAgentWire[] }
  *   | { type: "promotions", items: Promotion[] }
  *   | { type: "permission_denied", toolName: string, agent?: string, reason?: string, background?: boolean }
  *   | { type: "context", percentage: number, totalTokens: number, maxTokens: number }

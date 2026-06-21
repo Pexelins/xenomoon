@@ -11,6 +11,7 @@ import {
   FRAMEWORK_PLUGIN_DIR,
   hermesPublicConfig,
   codexPublicConfig,
+  docsPublicConfig,
 } from "../config.js";
 
 /**
@@ -137,5 +138,7 @@ export function projectState() {
     hermes: hermesPublicConfig(),
     // Optional Codex reviewer config for the settings panel — secret-free (enabled + vendored).
     codex: codexPublicConfig(),
+    // Optional Godot-docs MCP config for the settings panel — secret-free (just enabled).
+    docs: docsPublicConfig(),
   };
 }

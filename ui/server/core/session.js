@@ -4,18 +4,12 @@
 // stays well under the complexity/size limits.
 import { createWriteStream, existsSync } from "node:fs";
 import path from "node:path";
-import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { parseJSON } from "../../lib/json.js";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
-import { makeFormTool } from "../mcp-tools/form-tool.js";
-import { makeTaskTool } from "../mcp-tools/task-tool.js";
-import { makeAssetTool } from "../mcp-tools/asset-tool.js";
-import { makeAskTool } from "../mcp-tools/ask-tool.js";
-import { makePromoteTool } from "../mcp-tools/promote-tool.js";
-import { makeHermesTool, makeHermesFeedbackTool } from "../mcp-tools/hermes-tool.js";
-import { makeAutonomousTool } from "../mcp-tools/autonomous-tool.js";
+import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { uiControlAllow } from "./ui-control.js";
-import { emitContextUsage } from "./stream.js";
+import { emitContextUsage, runningChip, emitRunning } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
 import { readAutonomous } from "../features/autonomous/autonomous-store.js";
@@ -32,6 +26,7 @@ import {
   closeStragglerTasks,
   findOpenQuestion,
 } from "../features/tasks/tasks-store.js";
+import { resolveSessionSkills } from "../features/skills/skills.js";
 import {
   DEFAULT_POLICY,
   EDIT_TOOLS,
@@ -42,12 +37,15 @@ import {
   ORCHESTRATOR_PROMPT,
   HERMES_BLOCK,
   CODEX_BLOCK,
+  DOCS_BLOCK,
   getHermesConfig,
   POLICIES,
   PROJECT_DIR,
   FRAMEWORK_PLUGIN_DIR,
   CODEX_PLUGIN_DIR,
   getCodexConfig,
+  getDocsConfig,
+  DOCS_MCP_ENTRY,
   ASSET_LIBRARY,
   LOG_DIR,
 } from "./config.js";
@@ -57,6 +55,7 @@ import {
 /** @typedef {import("../../lib/types.js").ClientMsg} ClientMsg */
 /** @typedef {import("../../lib/types.js").WaitFor} WaitFor */
 /** @typedef {import("../../lib/types.js").Task} Task */
+/** @typedef {import("../../lib/types.js").RunningAgentWire} RunningChip */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 /** @typedef {Map<number, { type: string, resolve: (value: Reply) => void }>} Pending */
 /** Per-connection mutable session state, shared between runSession and the client-message
@@ -249,10 +248,10 @@ function bridgeSettle(t, { bgBoard, send }) {
  * AND background sub-agents, so this deterministically restores the inline close
  * that the background change removed for foreground work — no LLM cooperation
  * needed. @param {string | undefined} taskId
- * @param {{ runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps */
+ * @param {{ runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} deps */
 function settleAgentTasks(taskId, { runningByTask, send }) {
   if (!taskId) return;
-  const label = runningByTask.get(taskId);
+  const label = runningByTask.get(taskId)?.label;
   runningByTask.delete(taskId);
   if (!label) return;
   send({ type: "tasks", tasks: closeOpenByAgent(label) });
@@ -262,9 +261,9 @@ function settleAgentTasks(taskId, { runningByTask, send }) {
  * running — a foreground straggler whose task_notification never arrived (e.g. a
  * hard interrupt). Live sub-agents (incl. background workers) and the
  * orchestrator's own cross-turn board are preserved.
- * @param {{ runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps */
+ * @param {{ runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} deps */
 function sweepStragglers({ runningByTask, send }) {
-  const list = closeStragglerTasks(new Set(runningByTask.values()));
+  const list = closeStragglerTasks(new Set([...runningByTask.values()].map((v) => v.label)));
   if (list) send({ type: "tasks", tasks: list });
 }
 
@@ -310,15 +309,18 @@ function surfaceDenial(message, { agentByTool, send }) {
  * background workers onto the board, deterministically close each sub-agent's own
  * tasks when it finishes, surface auto-denials, and sweep stragglers at turn end.
  * @param {import("@anthropic-ai/claude-agent-sdk").SDKMessage} message
- * @param {{ agentByTool: Map<string, string>, bgSpawns: Set<string>, bgBoard: Map<string, string>, runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps
+ * @param {{ agentByTool: Map<string, string>, bgSpawns: Set<string>, bgBoard: Map<string, string>, runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} deps
  */
 function trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, send }) {
   if (message.type === "assistant") {
     trackToolUses(message, { agentByTool, bgSpawns });
   } else if (message.type === "system" && message.subtype === "task_started") {
-    // Remember which sub-agent owns this spawn, so settleAgentTasks can close
-    // exactly its tasks when its notification arrives.
-    if (message.task_id) runningByTask.set(message.task_id, message.subagent_type ?? "");
+    // Record this sub-agent as live (label + display fields): settleAgentTasks closes its
+    // tasks on notification, and the running snapshot carries it to the strip.
+    if (message.task_id) {
+      runningByTask.set(message.task_id, runningChip(message, bgSpawns));
+      emitRunning(runningByTask, send);
+    }
     bridgeStart(
       { taskId: message.task_id, toolUseId: message.tool_use_id, desc: message.description },
       { bgSpawns, bgBoard, send },
@@ -326,6 +328,7 @@ function trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, 
   } else if (message.type === "system" && message.subtype === "task_notification") {
     bridgeSettle({ taskId: message.task_id, status: message.status }, { bgBoard, send });
     settleAgentTasks(message.task_id, { runningByTask, send });
+    emitRunning(runningByTask, send);
   } else if (message.type === "system" && message.subtype === "permission_denied") {
     surfaceDenial(message, { agentByTool, send });
   } else if (message.type === "result") {
@@ -337,7 +340,7 @@ function trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, 
  * subprocess — and thus every in-flight background worker — is gone), remove each
  * bridged background board task and close each still-running sub-agent's tasks, so
  * the board doesn't keep a dead worker as in_progress forever.
- * @param {{ bgBoard: Map<string, string>, runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps */
+ * @param {{ bgBoard: Map<string, string>, runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} deps */
 function settleAllBackground({ bgBoard, runningByTask, send }) {
   for (const taskId of [...bgBoard.keys()]) {
     bridgeSettle({ taskId, status: "stopped" }, { bgBoard, send });
@@ -384,8 +387,8 @@ function runSession({
   const bgSpawns = new Set(); // tool_use ids spawned with run_in_background
   /** @type {Map<string, string>} */
   const bgBoard = new Map(); // sdk task_id -> bridged board task id
-  /** @type {Map<string, string>} */
-  const runningByTask = new Map(); // sdk task_id -> subagent_type (in-flight sub-agents)
+  /** @type {Map<string, RunningChip>} */
+  const runningByTask = new Map(); // sdk task_id -> live sub-agent chip (authoritative running set)
   // `busy.value` lets the check loop skip ticks mid-turn; stash loop on session
   // so the control handler + autonomous tool can arm/disarm it.
   const busy = { value: false };
@@ -395,6 +398,7 @@ function runSession({
     try {
       send({ type: "policy", value: policy });
       send({ type: "tasks", tasks: readTasks() });
+      emitRunning(runningByTask, send); // reset the strip on (re)connect — set starts empty
       send({ type: "promotions", items: readPromotions() });
       // Repaint the Autonomous flag + re-arm the check loop if a goal survived the reconnect.
       const autoState = readAutonomous();
@@ -407,10 +411,26 @@ function runSession({
       } else {
         send({ type: "status", text: `session starting in ${PROJECT_DIR}` });
       }
+      // The OPTIONAL Codex reviewer is a SECOND local plugin (OpenAI's `codex-plugin-cc`, vendored
+      // on disk), appended ONLY when the user enabled it AND it's actually been cloned — a
+      // disabled/absent Codex changes nothing. Gating is array inclusion (the SDK has no per-plugin
+      // enable flag, and `plugins` only accepts `{ type: "local" }`). Extracted to a typed const so
+      // the options object below stays readable.
+      /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
+      const codexPlugin =
+        getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
+          ? [{ type: "local", path: CODEX_PLUGIN_DIR, skipMcpDiscovery: true }]
+          : [];
       const q = query({
         prompt: inbox.iterable,
         options: {
           ...(resumeId ? { resume: resumeId } : {}),
+          // Every agent — orchestrator and all sub-agents, foreground or background — runs in this
+          // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
+          // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
+          // half-applied edit fails the other's godot-verify, or clobbers its writes). We accept that
+          // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
+          // "Concurrent builders share one working tree"), not with isolation here.
           cwd: PROJECT_DIR,
           // The framework's agents/skills/hooks come from the plugin (single source
           // of truth), not from copies in the game — so the game folder stays pure.
@@ -426,15 +446,7 @@ function runSession({
           // owns MCP. We do NOT enable its opt-in review-gate Stop hook (on-demand only).
           plugins: [
             { type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true },
-            ...(getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
-              ? [
-                  /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig} */ ({
-                    type: "local",
-                    path: CODEX_PLUGIN_DIR,
-                    skipMcpDiscovery: true,
-                  }),
-                ]
-              : []),
+            ...codexPlugin,
           ],
           // The framework knowledge base (plugin/library) and skill/agent sources live
           // in the plugin, OUTSIDE the game cwd. Mount the plugin as an extra working
@@ -455,9 +467,15 @@ function runSession({
           allowedTools: AUTO_ALLOW_TOOLS,
           model: MODEL,
           // Orchestrator routes more than it reasons; sub-agents override via their
-          // own `effort:` frontmatter while active. Skill discovery stays default
-          // ("all") so sub-agents can still invoke + preload the project's skills.
+          // own `effort:` frontmatter while active.
           effort: EFFORT,
+          // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
+          // (caveman, quick) + the built-ins the user enabled via the skill wizard
+          // (skillOverrides). DOMAIN skills are excluded — both the framework `godot-*` skills
+          // and the game's own `.claude/skills` — because the orchestrator only routes; those
+          // belong to the implementer agents. A context filter, not a sandbox: unlisted skills
+          // stay on disk and remain loadable by the agents that list them.
+          skills: resolveSessionSkills(),
           // Keep Claude Code's tooling behavior, append the orchestrator role.
           // Hermes and Codex blocks are injected only when those integrations are active,
           // so the orchestrator's routing instructions match the actual team each session.
@@ -469,25 +487,26 @@ function runSession({
               (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
               (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
                 ? "\n\n" + CODEX_BLOCK
-                : ""),
+                : "") +
+              (getDocsConfig().enabled && DOCS_MCP_ENTRY ? "\n\n" + DOCS_BLOCK : ""),
           },
           canUseTool,
           abortController: abort,
           mcpServers: {
-            ui: createSdkMcpServer({
-              name: "ui",
-              version: "0.1.0",
-              tools: [
-                makeFormTool(waitFor, formAgentQueue),
-                makeTaskTool(send),
-                makeAssetTool(send),
-                makeAskTool(send),
-                makePromoteTool(send),
-                makeHermesTool(send, inbox.push),
-                makeHermesFeedbackTool(send),
-                makeAutonomousTool(send, checkLoop.disarm),
-              ],
+            ui: buildUiServer({
+              waitFor,
+              formAgentQueue,
+              send,
+              hermesPush: inbox.push,
+              disarm: checkLoop.disarm,
             }),
+            // Godot docs as a source of truth — the official-docs MCP, mounted only when the
+            // user enabled it (Settings toggle / DOCS_ENABLED / .xenodot.json `docs` block) AND
+            // the bundled package resolved. Launched as the compiled esm/ build via node (its bin
+            // is broken — see DOCS_MCP_ENTRY); surfaces as mcp__godot-docs__*.
+            ...(getDocsConfig().enabled && DOCS_MCP_ENTRY
+              ? { "godot-docs": { type: "stdio", command: "node", args: [DOCS_MCP_ENTRY] } }
+              : {}),
           },
         },
       });

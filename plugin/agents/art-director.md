@@ -5,6 +5,10 @@ model: opus
 tools: Read, Glob, Grep, Write, Edit, Skill, mcp__ui__form, mcp__ui__tasks
 skills:
   - caveman
+  - godot-3d-pixelation
+  - godot-pixel-lighting
+  - godot-procedural-model
+  - godot-procedural-texture
   - tasks-mcp
 effort: high
 ---
