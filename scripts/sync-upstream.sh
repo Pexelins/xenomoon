@@ -3,7 +3,8 @@
 # See docs/whitelabel/SYNC.md for the full rationale.
 #
 #   main  = pristine mirror of upstream/main (never hand-edited)
-#   forge = our additive integration trunk, rebased on main
+#   forge = our integration trunk; upstream is MERGED in (NOT rebased), and the
+#           xenomoon rebrand is COMMITTED on forge — so a sync = merge + re-run the codemod.
 #
 # Flags:
 #   --push     also push the fast-forwarded main to origin
@@ -29,18 +30,26 @@ git checkout main
 git merge --ff-only upstream/main
 [ "$PUSH" = 1 ] && { echo "==> pushing main to origin"; git push origin main; }
 
-echo "==> rebasing forge onto main"
+echo "==> merging main into forge (rebrand is committed on forge; expect conflicts on rebranded lines)"
 git checkout forge
-git rebase main
+if ! git merge --no-ff main; then
+  echo
+  echo "Merge conflicts — resolve them, then finish the sync by hand:"
+  echo "  - keep README ours; keep the DOMAIN seam in ui/server/core/config.js"
+  echo "  - re-drop the intentional divergences (godot-docs, FEATURES.md) per docs/whitelabel/SEAMS.md"
+  echo "  - git add -u && git commit            # complete the merge"
+  echo "  - node scripts/rebrand.mjs && git commit -am 'rebrand: re-flip merged upstream'"
+  echo "  - node scripts/rebrand.mjs --check && npm run validate && npm run test:onboarding"
+  exit 1
+fi
 
 if [ "$RUN_TEST" = 1 ]; then
-  echo "==> onboarding gate (xenodot vocab)"
+  echo "==> onboarding gate"
   npm install --silent
   npm run test:onboarding
 fi
 
 echo
-echo "Done. forge is rebased on upstream."
-echo "To produce the branded artifact:"
-echo "    node scripts/rebrand.mjs && npm run test:onboarding && node scripts/rebrand.mjs --check"
-echo "    git restore .   # then drop the rebrand mutations to keep forge in xenodot vocab"
+echo "Done. main merged into forge cleanly. Re-brand the merged-in upstream strings:"
+echo "    node scripts/rebrand.mjs && git commit -am 'rebrand: re-flip merged upstream'"
+echo "    node scripts/rebrand.mjs --check   # only arthur0n + docs/whitelabel + scripts keep 'xenodot'"

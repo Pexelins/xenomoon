@@ -35,6 +35,7 @@ code, plus why it's unavoidable.
 | `ui/server/cli/doctor.js` | Capability + `validate.sh` checks are HARD only when `DOMAIN.populated`; an empty domain installs/runs cleanly. | Doctor gates `new`/CI; emptiness is a legal starting state for a learning domain. |
 | `ui/server/cli/gen-manifest.js` | The manifest `commands` block ← `DOMAIN.commands`. | Build/verify commands are per-domain. |
 | `README.md` | **Fully replaced** with a xenomoon front page (what it is / what we're trying to do / where we are). Upstream-name refs kept on `arthur0n` lines so the rebrand codemod preserves them. | Our product's front page — fully diverged. Expect conflicts on upstream README changes; resolve by keeping ours. |
+| `ui/server/features/skills/skill-registry.js` | Replace the hardcoded `BUILDERS` list with a read of the reference domain's `builders` (via the side-effect-free `domain-resolver`). `domains/godot/domain.json` now declares `builders` (additive). | The `builders` skill-audience token (upstream's skills subsystem) must resolve per-domain, not bake godot's builder agents into the spine. |
 
 For the default `godot` domain every value above equals the old literal, so behavior is
 byte-for-byte unchanged (the onboarding gate proves it). The `config.js` and `new.js` rows have
@@ -54,6 +55,25 @@ it; `new.js` is now the deterministic `--domain` install (writes the lock, wires
 - Inventory field **labels** (`scenes` / `scripts`) in `project-state.js` + the client.
 - Per-project **library** isolation — `materialize` symlinks the shared plugin library; full
   per-project independence (two app projects → separate learned libraries) is a later increment.
+
+### Intentional upstream divergences (re-apply on every sync)
+
+These are upstream additions we deliberately do NOT carry. Each merge that re-introduces them must
+re-drop them (the merge brings them back because lineage is preserved — that's by design).
+
+- **godot-docs (upstream `000f4b7`) — NOT carried.** The opt-in Godot-docs MCP + `godot-docs-evangelist`
+  agent is godot-specific and pulls the `@nuskey8/godot-docs-mcp` dependency — no value for our
+  app/salesforce domains. On every merge that re-introduces it, re-run the drop:
+  - delete `plugin/agents/godot-docs-evangelist.md`, `plugin/skills/godot-docs/`, `ui/docs-block.md`;
+  - back out the `DOCS_*` / `getDocsConfig` / `docsPublicConfig` / `saveDocsConfig` / `mcp__godot-docs__*`
+    wiring in `config.js`, `session.js`, `index.js`, `types.js`, `settings.js`, `index.html`,
+    `project-state.js`, and the `godot-docs` tools + skill from the six builder agents;
+  - drop the `@nuskey8/godot-docs-mcp` dep (`package.json`) and regenerate the lock (`npm install`);
+  - **KEEP** `ui/server/mcp-tools/ui-server.js` (the domain-agnostic `buildUiServer` the merge depends on).
+  - Sweep: `git grep -i 'godot-docs\|nuskey8\|DOCS_BLOCK'` must be clean (outside this doc).
+    Revisit only if a domain wants its own docs-MCP — then generalize it into a per-domain seam.
+- **FEATURES.md — NOT carried.** Upstream's godot-feature catalog (un-curated for xenomoon); re-curate
+  on its own terms if ever wanted.
 
 ## Rebrand rename map (applied by `scripts/rebrand.mjs`, case-preserving)
 
