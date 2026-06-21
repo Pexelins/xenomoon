@@ -37,15 +37,12 @@ import {
   ORCHESTRATOR_PROMPT,
   HERMES_BLOCK,
   CODEX_BLOCK,
-  DOCS_BLOCK,
   getHermesConfig,
   POLICIES,
   PROJECT_DIR,
   FRAMEWORK_PLUGIN_DIR,
   CODEX_PLUGIN_DIR,
   getCodexConfig,
-  getDocsConfig,
-  DOCS_MCP_ENTRY,
   ASSET_LIBRARY,
   LOG_DIR,
 } from "./config.js";
@@ -487,8 +484,7 @@ function runSession({
               (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
               (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
                 ? "\n\n" + CODEX_BLOCK
-                : "") +
-              (getDocsConfig().enabled && DOCS_MCP_ENTRY ? "\n\n" + DOCS_BLOCK : ""),
+                : ""),
           },
           canUseTool,
           abortController: abort,
@@ -500,13 +496,6 @@ function runSession({
               hermesPush: inbox.push,
               disarm: checkLoop.disarm,
             }),
-            // Godot docs as a source of truth — the official-docs MCP, mounted only when the
-            // user enabled it (Settings toggle / DOCS_ENABLED / .xenodot.json `docs` block) AND
-            // the bundled package resolved. Launched as the compiled esm/ build via node (its bin
-            // is broken — see DOCS_MCP_ENTRY); surfaces as mcp__godot-docs__*.
-            ...(getDocsConfig().enabled && DOCS_MCP_ENTRY
-              ? { "godot-docs": { type: "stdio", command: "node", args: [DOCS_MCP_ENTRY] } }
-              : {}),
           },
         },
       });

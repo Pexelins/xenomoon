@@ -23,8 +23,6 @@ import {
   getHermesConfig,
   saveCodexConfig,
   codexPublicConfig,
-  saveDocsConfig,
-  docsPublicConfig,
 } from "./config.js";
 import { checkHermes } from "../integrations/hermes/hermes-check.js";
 import { checkCodex } from "../integrations/codex/codex-check.js";
@@ -147,11 +145,11 @@ function handleSettingsPost(req, res) {
     chunks.push(c);
   });
   req.on("end", () => {
-    /** @type {{ hermes?: import("../../lib/types.js").HermesPublicConfig, codex?: import("../../lib/types.js").CodexPublicConfig, docs?: import("../../lib/types.js").DocsPublicConfig } | { error: string }} */
+    /** @type {{ hermes?: import("../../lib/types.js").HermesPublicConfig, codex?: import("../../lib/types.js").CodexPublicConfig } | { error: string }} */
     let result;
     try {
       const body =
-        /** @type {{ hermes?: { enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string }, codex?: { enabled?: boolean }, docs?: { enabled?: boolean } }} */ (
+        /** @type {{ hermes?: { enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string }, codex?: { enabled?: boolean } }} */ (
           parseJSON(Buffer.concat(chunks).toString("utf8"))
         );
       const errors = [];
@@ -163,13 +161,9 @@ function handleSettingsPost(req, res) {
         const saved = saveCodexConfig(body.codex);
         if ("error" in saved) errors.push(saved.error);
       }
-      if (body.docs) {
-        const saved = saveDocsConfig(body.docs);
-        if ("error" in saved) errors.push(saved.error);
-      }
       result = errors.length
         ? { error: errors.join("; ") }
-        : { hermes: hermesPublicConfig(), codex: codexPublicConfig(), docs: docsPublicConfig() };
+        : { hermes: hermesPublicConfig(), codex: codexPublicConfig() };
     } catch {
       result = { error: "bad request" };
     }
