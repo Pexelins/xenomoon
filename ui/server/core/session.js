@@ -425,7 +425,7 @@ function runSession({
           // Every agent — orchestrator and all sub-agents, foreground or background — runs in this
           // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
           // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
-          // half-applied edit fails the other's godot-verify, or clobbers its writes). We accept that
+          // half-applied edit fails the other's verify, or clobbers its writes). We accept that
           // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
           // "Concurrent builders share one working tree"), not with isolation here.
           cwd: PROJECT_DIR,
@@ -449,9 +449,9 @@ function runSession({
           // in the plugin, OUTSIDE the game cwd. Mount the plugin as an extra working
           // root so researcher agents can read it AND write new knowledge / promoted
           // capabilities back into the framework (the self-improvement loop). ASSET_LIBRARY
-          // (the external shared-asset dir, mounted in the game as res://x-shared-assets) is
+          // (the external shared-asset dir, mounted in the project as x-shared-assets) is
           // also outside cwd, so mount it too — asset-advisor reads/verifies sourced files
-          // there and godot-dev imports them. All still gated by the permission policy + hooks.
+          // there and builder agents import them. All still gated by the permission policy + hooks.
           additionalDirectories: [FRAMEWORK_PLUGIN_DIR, ASSET_LIBRARY],
           // Pick up the game's CLAUDE.md + any game-local .claude/ (game-specific
           // agents/skills the user hasn't promoted to the framework yet).
@@ -468,8 +468,8 @@ function runSession({
           effort: EFFORT,
           // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
           // (caveman, quick) + the built-ins the user enabled via the skill wizard
-          // (skillOverrides). DOMAIN skills are excluded — both the framework `godot-*` skills
-          // and the game's own `.claude/skills` — because the orchestrator only routes; those
+          // (skillOverrides). DOMAIN skills are excluded — both the framework's domain skills
+          // and the project's own `.claude/skills` — because the orchestrator only routes; those
           // belong to the implementer agents. A context filter, not a sandbox: unlisted skills
           // stay on disk and remain loadable by the agents that list them.
           skills: resolveSessionSkills(),

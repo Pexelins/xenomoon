@@ -6,11 +6,13 @@
 // Usage: npm run doctor                  (the configured game, see config.js)
 //        npm run doctor -- /path/to/game
 //        node ui/server/cli/doctor.js /path/to/game
-import { existsSync, readdirSync, lstatSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { parseJSON } from "../../lib/json.js";
 import {
   PROJECT_DIR,
+  FRAMEWORK_DIR,
   FRAMEWORK_PLUGIN_DIR,
   ENGINE,
   ENGINE_LABEL,
@@ -80,7 +82,7 @@ const checks = [
     label: "xenomoon plugin manifest present",
   },
   {
-    // A populated domain (godot) must ship capabilities; an empty domain starts with none and
+    // A populated domain must ship capabilities; an empty domain starts with none and
     // learns them per project — so this is only a HARD check when the domain is populated.
     ok: DOMAIN.populated ? pluginAgents > 0 && pluginSkills > 0 : true,
     hard: DOMAIN.populated,
@@ -94,8 +96,8 @@ const checks = [
     label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
   },
   {
-    // godot ships tools/validate.sh (the verify gate), materialized into the project; an empty
-    // domain may have no tools yet, so this is hard only when the domain is populated.
+    // a populated domain ships tools/validate.sh (the verify gate), materialized into the project; an
+    // empty domain may have no tools yet, so this is hard only when the domain is populated.
     ok: DOMAIN.populated ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")) : true,
     hard: DOMAIN.populated,
     label: DOMAIN.populated
@@ -103,18 +105,18 @@ const checks = [
       : "tools/ — none yet (empty domain)",
   },
   {
-    // Only the Godot family runs an external engine binary; other runtimes (Node) drive their
-    // toolchain through package scripts, so there is no $GODOT to resolve.
+    // Only some domains run an external engine binary; other runtimes (Node) drive their
+    // toolchain through package scripts, so there is no engine binary to resolve.
     ok: DOMAIN.engine.needsBinary ? Boolean(ENGINE.bin) : true,
     hard: false,
     label: !DOMAIN.engine.needsBinary
       ? `${ENGINE_LABEL} toolchain via package scripts (no engine binary needed)`
       : ENGINE.bin
-        ? `${ENGINE_LABEL} binary resolved ($GODOT=${ENGINE.bin})`
-        : `${ENGINE_LABEL} binary not found — set GODOT=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
+        ? `${ENGINE_LABEL} binary resolved (ENGINE_BIN=${ENGINE.bin})`
+        : `${ENGINE_LABEL} binary not found — set ENGINE_BIN=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
   },
   // The materialized-into-project artifacts (facts manifest, library + asset symlinks) only exist
-  // for a domain that opts into writing files into the project tree (Godot). Omit the rows entirely
+  // for a domain that opts into writing files into the project tree. Omit the rows entirely
   // for a domain that materializes nothing, rather than show them perpetually "—".
   ...(DOMAIN.materializeIntoProject
     ? [
@@ -158,10 +160,25 @@ if (hardFails > 0) {
   process.exit(1);
 }
 console.log("doctor: OK");
+// Terminal install: point `/plugin marketplace add` at the framework ROOT (where
+// .claude-plugin/marketplace.json lives — NOT the plugin subdir), and install the ACTIVE
+// domain's plugin by its REAL manifest name (e.g. webapp → "xenomoon-webapp").
+// The previous hint hardcoded "xenomoon" and pointed at the plugin's parent dir, which has no
+// marketplace.json for a non-default domain — so terminal install silently failed there.
+const pluginName = (() => {
+  try {
+    return /** @type {{ name?: string }} */ (
+      parseJSON(
+        readFileSync(path.join(FRAMEWORK_PLUGIN_DIR, ".claude-plugin", "plugin.json"), "utf8"),
+      )
+    ).name;
+  } catch {
+    return null;
+  }
+})();
 console.log(
-  "  Terminal use: install the plugin once —\n" +
-    "    /plugin marketplace add " +
-    path.dirname(FRAMEWORK_PLUGIN_DIR) +
-    "\n    /plugin install xenomoon@xenomoon-forge\n" +
+  "  Terminal use: install the domain plugin once —\n" +
+    `    /plugin marketplace add ${FRAMEWORK_DIR}\n` +
+    `    /plugin install ${pluginName ?? "xenomoon"}@xenomoon-forge\n` +
     "  (The web UI loads the plugin automatically — no install needed.)",
 );

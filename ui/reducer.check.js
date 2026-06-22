@@ -66,7 +66,7 @@ check("main assistant text appends one chat entry and sets busy", () => {
 });
 
 check("a sub-agent's text goes to the activity log, not the chat", () => {
-  const s = reduce(initialState(), assistant([{ type: "text", text: "working" }], "godot-dev"));
+  const s = reduce(initialState(), assistant([{ type: "text", text: "working" }], "webapp-dev"));
   assert.equal(s.chat.length, 0);
   assert.equal(s.activity.at(-1)?.kind, "say");
 });
@@ -75,7 +75,7 @@ check("a Task spawn adds a chip; its tool_result removes it", () => {
   let s = reduce(
     initialState(),
     assistant([
-      { type: "tool_use", id: "tu", name: "Task", input: { subagent_type: "godot-dev" } },
+      { type: "tool_use", id: "tu", name: "Task", input: { subagent_type: "webapp-dev" } },
     ]),
   );
   assert.equal(s.running.length, 1);

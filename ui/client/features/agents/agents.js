@@ -30,8 +30,8 @@ let nextIdx = 0;
 const ROLE_COLOR = {
   "game-designer": "oklch(0.74 0.13 300)", // violet — concept work
   "level-designer": "oklch(0.74 0.12 255)", // blue — space & blockout
-  "godot-dev": "oklch(0.78 0.13 85)", // amber — hot iron at the forge
-  "godot-refactor": "oklch(0.78 0.1 210)", // cyan — inspection steel
+  developer: "oklch(0.78 0.13 85)", // amber — hot iron at the forge
+  refactor: "oklch(0.78 0.1 210)", // cyan — inspection steel
   "addon-researcher": "oklch(0.76 0.13 150)", // verdigris — the library
   "transcript-researcher": "oklch(0.74 0.15 345)", // magenta — raw signal
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
@@ -56,8 +56,8 @@ const DISPLAY = {
   main: "Xenomoon Hive",
   "game-designer": "Xenomoon Designer",
   "level-designer": "Xenomoon Level Designer",
-  "godot-dev": "Xenomoon Developer",
-  "godot-refactor": "Xenomoon Refactor",
+  developer: "Xenomoon Developer",
+  refactor: "Xenomoon Refactor",
   "addon-researcher": "Xenomoon Researcher",
   "transcript-researcher": "Xenomoon Transcript",
   hermes: "Hermes: Researcher",
@@ -71,7 +71,7 @@ export function agentLabel(name) {
   const bare = stripNs(name);
   if (DISPLAY[bare]) return DISPLAY[bare];
   // Fallback for any agent not in the map: brand first, domain prefix dropped.
-  const role = bare.replace(/^(godot|game|addon|level|transcript)-/, "").replace(/-/g, " ");
+  const role = bare.replace(/^(game|addon|level|transcript)-/, "").replace(/-/g, " ");
   const titled = role.replace(/\b\w/g, (c) => c.toUpperCase());
   return `Xenomoon ${titled}`;
 }

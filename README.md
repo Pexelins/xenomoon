@@ -13,41 +13,46 @@
 
 Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **designer → dev → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that same pipeline for whatever you're building — games, apps, anything.
 
-Godot is just the reference domain we forked from — not one of our products.
+The upstream we forked from is a Godot game-dev framework — but Xenomoon itself ships **no** Godot: no godot domain, no engine plugin, no engine binary. The shipped domains are `app` and `webapp` (empty Node/web packs).
 
 ## Quick start — install into a project
 
-Install the framework into a React + Node.js web app. The `webapp` domain installs **in place** and
-writes nothing into your project (it binds the path in the framework's gitignored `.xenomoon.json`):
+Install the framework into a project and lock it to a **domain** (`--domain=<name>` — see the packs
+in [`domains/`](domains/), or run `npm run new` with no domain to list them). A Node/web domain
+installs **in place** and writes nothing into your project (it binds the path in the framework's
+gitignored `.xenomoon.json`); a domain that ships a starter scaffolds an empty target
+but still wires an existing one **in place** — never over your code.
 
 ```bash
 rtk npm ci
-rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
+rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_PROJECT> --domain=<DOMAIN>
 rtk npm run doctor
 rtk npm start            # http://localhost:3117
 ```
 
-Or hand the whole install to an agent — paste this verbatim, replacing the target path:
+Or hand the whole install to an agent — paste this verbatim, replacing the two placeholders
+(`<DOMAIN>` and the target path):
 
 ```text
-You are installing the Xenomoon Forge framework into a React + Node.js web app, using the `webapp` domain.
+You are installing the Xenomoon Forge framework into a project, locking it to the `<DOMAIN>` domain.
 
 Context:
 - Framework repo = the xenomoon checkout you are running in (this directory).
-- Target project = <ABSOLUTE_PATH_TO_YOUR_WEBAPP>  ← a React + Node.js app with a package.json.
-- Domain = `webapp`: a Node domain that installs in place, writes nothing into your project, and keeps it pure.
+- Target project = <ABSOLUTE_PATH_TO_YOUR_PROJECT>  ← an existing project carrying the domain's marker file.
+- Domain = `<DOMAIN>`: one of the packs in domains/ (run `npm run new` with no domain to list them).
+  A Node/web domain installs in place and writes nothing into your project — it stays pure.
 
 Prefix every shell command with `rtk` (a PreToolUse hook enforces it). Do exactly this:
 1. Install framework deps:        rtk npm ci
-2. Install into the project:       rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
+2. Install into the project:       rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_PROJECT> --domain=<DOMAIN>
    (locks the domain, binds the path in .xenomoon.json, runs doctor)
-3. Confirm health:                 rtk npm run doctor   → must report OK for the webapp domain.
+3. Confirm health:                 rtk npm run doctor   → must report OK for the <DOMAIN> domain.
 4. Boot the UI:                    rtk npm start         → serves http://localhost:3117
 5. Verify: open http://localhost:3117 (expect HTTP 200) and check /api/state returns the project's
-   name with "found": true.
+   name with "found": true — confirm it is YOUR project's name, not a stale server's on the same port.
 
 Do not scaffold, copy, or edit anything inside the target project beyond the framework binding.
-Stop and report if `doctor` fails or the `webapp` domain is not found.
+Stop and report if `doctor` fails or the `<DOMAIN>` domain is not found.
 ```
 
 ## What we're trying to do
@@ -59,12 +64,13 @@ Stop and report if `doctor` fails or the `webapp` domain is not found.
 
 ## Where we are
 
-Early, but real. Working today:
+Early, but real. **Currently testing the `webapp` domain** (React + Node.js), installed in place
+against a live app — it binds and boots clean. Working today:
 
-- The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding Godot.
+- The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding any one engine.
 - **Deterministic per-project install**, including into existing **non-greenfield** projects — never scaffolding over your code. A project-owned lock makes the binding deterministic, and a conflicting override is **refused**, not silently applied.
 - **Empty packages are valid** — a domain with no pre-baked capabilities installs and runs cleanly.
-- The reference **`godot`** domain reproduces upstream behavior exactly (its onboarding gate stays green). Empty **`app`** and **`webapp`** domains (Node / React) are the first non-game packages.
+- The shipped **`app`** and **`webapp`** domains (Node / React) are empty learning packs; their onboarding gate stays green. The upstream we track is a Godot framework, but Xenomoon ships no godot domain, plugin, or engine binary.
 
 Not yet: real package content (`app` / `webapp` are empty starters), OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/whitelabel/VISION.md](docs/whitelabel/VISION.md) and [docs/whitelabel/SEAMS.md](docs/whitelabel/SEAMS.md).
 

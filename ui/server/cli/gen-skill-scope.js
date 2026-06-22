@@ -11,7 +11,7 @@
 // Tag vocabulary (in a skill's `agents: [...]`): bare agent names, plus reserved tokens —
 //   all          → the orchestrator + every agent          (e.g. caveman)
 //   workers      → every agent that manages the board (has the mcp__ui__tasks tool)
-//   builders     → godot-dev, godot-refactor + the domain specialists (the code-writers)
+//   builders     → the domain's code-writer agents (declared per-domain in its domain pack)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)
 import { ORCHESTRATOR_FRAMEWORK_SKILLS } from "../features/skills/skill-catalog.js";
 import { ORCH, loadRegistry } from "../features/skills/skill-registry.js";
@@ -77,7 +77,7 @@ for (const [id, have] of actual) {
 //     load). Fix by adding it to skills:, OR — if the skill belongs to another agent and the body is
 //     just cross-referencing it — reword the prose so it doesn't read as a self-claim. (You cannot
 //     simply add a builder-scoped skill to a non-builder here: that trips the D2 audience check above.)
-//   - the skill is NOT on disk and looks godot-/gd- → WARNING (heuristic: may be a game-local skill).
+//   - the skill is NOT on disk at all → WARNING (may be a project-local skill).
 for (const [name, a] of agents) {
   const listed = new Set(a.skills);
   for (const ref of bodySkillRefs(a.body)) {
@@ -87,11 +87,11 @@ for (const [name, a] of agents) {
           `agent \`${name}\` body references the \`${ref}\` skill but its frontmatter skills: omits it ` +
             `(add it to skills:, or reword the prose as a cross-reference if the skill belongs to another agent)`,
         );
-    } else if (/^godot-|^gd-/.test(ref)) {
+    } else {
       warnings.push(
         `agent \`${name}\` body references \`${ref}\` as a skill, but it is not a FRAMEWORK skill ` +
-          `(may be a game-local skill in the game's .claude/skills/ — a framework agent shouldn't ` +
-          `hard-depend on a game-specific skill; and per-agent frontmatter scoping can hide it)`,
+          `(may be a project-local skill in the bound project's .claude/skills/ — a framework agent ` +
+          `shouldn't hard-depend on a project-specific skill; and per-agent frontmatter scoping can hide it)`,
       );
     }
   }

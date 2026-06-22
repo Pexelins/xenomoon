@@ -23,14 +23,14 @@ import { ENGINE, DOMAIN, RES_ASSET_MOUNT } from "../core/config.js";
  *   layout: { entry_point: string|null, tools_dir: string, library: string, asset_mount: string },
  *   capabilities: { registry: string, tools: string[] } }} Manifest */
 
-/** Strip one layer of surrounding double quotes from a project.godot scalar. @param {string} v */
+/** Strip one layer of surrounding double quotes from an INI scalar. @param {string} v */
 const unquote = (v) => v.replace(/^"(.*)"$/, "$1");
 
-/** Tolerant line parser for project.godot's INI-ish format. Captures single-line `key=value`
+/** Tolerant line parser for the project marker's INI-ish format. Captures single-line `key=value`
  * pairs (keys are already slash-namespaced, e.g. `window/size/viewport_width`) and, within the
  * `[input]` section, just the action NAMES (the `name={` headers) — never the multi-line event
  * dicts. @param {string} text @returns {{ flat: Record<string,string>, inputActions: string[] }} */
-function parseProjectGodot(text) {
+function parseProjectIni(text) {
   /** @type {Record<string,string>} */
   const flat = {};
   /** @type {string[]} */
@@ -56,8 +56,8 @@ function parseProjectGodot(text) {
   return { flat, inputActions };
 }
 
-/** Build the render-config block from parsed project.godot facts — the ground truth the
- * godot-verify skill insists on, so agents stop re-reading [display]/config/features to get it.
+/** Build the render-config block from parsed project facts — the ground truth the
+ * verify skill insists on, so agents stop re-reading [display]/config/features to get it.
  * @param {Record<string,string>} flat @returns {RenderConfig} */
 function renderBlock(flat) {
   const features = [...(flat["config/features"] ?? "").matchAll(/"([^"]*)"/g)].map(
@@ -80,7 +80,7 @@ function renderBlock(flat) {
 }
 
 /** List materialized tool entry points (a pointer to the curated registry, not a copy of it):
- * the runnable `*.gd`/`*.sh` files directly under tools/, excluding the `.uid` sidecars and the
+ * the runnable script files directly under tools/, excluding the `.uid` sidecars and the
  * tools/lib/ runtime stdlib. @param {string} toolsDir @returns {string[]} */
 function listTools(toolsDir) {
   try {
@@ -94,12 +94,12 @@ function listTools(toolsDir) {
 }
 
 /** Write <projectDir>/.xenomoon/manifest.json with the deterministic project facts. Cheap (parse
- * one project.godot, list one dir) and safe when project.godot is absent (a fresh starter) — the
+ * one project marker, list one dir) and safe when the marker is absent (a fresh starter) — the
  * engine/commands block is still useful. @param {string} projectDir @returns {Manifest} */
 export function generateManifest(projectDir) {
   const projectFile = path.join(projectDir, ENGINE.projectFile);
   const { flat, inputActions } = existsSync(projectFile)
-    ? parseProjectGodot(readFileSync(projectFile, "utf8"))
+    ? parseProjectIni(readFileSync(projectFile, "utf8"))
     : { flat: {}, inputActions: [] };
 
   const render = renderBlock(flat);
@@ -110,14 +110,14 @@ export function generateManifest(projectDir) {
     // How agents find + run the engine — the fact re-derived 600+ times in the session logs.
     engine: {
       name: ENGINE.name,
-      bin: ENGINE.bin, // resolved + persisted by config.js; also exported as $GODOT
+      bin: ENGINE.bin, // resolved + persisted by config.js (the engine binary, when a domain needs one)
       version: render.engine_version,
       projectFile: ENGINE.projectFile,
     },
-    // Effective render pipeline — read this instead of re-parsing project.godot's [display].
+    // Effective render pipeline — read this instead of re-parsing the project marker's [display].
     render,
     // Canonical build/verify/drive commands (the "/run" payload) — declared by the active
-    // domain pack (godot's are the $GODOT verify gate, preset in the session; a new domain
+    // domain pack (a populated domain ships a verify gate, preset in the session; a new domain
     // ships its own, possibly none while it's still empty).
     commands: DOMAIN.commands,
     input_actions: inputActions,
@@ -125,7 +125,7 @@ export function generateManifest(projectDir) {
       entry_point: mainScene,
       tools_dir: "tools/",
       library: "library/", // symlink to the plugin knowledge base
-      asset_mount: `res://${RES_ASSET_MOUNT}/`,
+      asset_mount: `${RES_ASSET_MOUNT}/`,
     },
     // Pointer to the curated registry + the materialized tool files — answers "do we already
     // have a tool for this?" in one read, without re-globbing tools/ and library/tools/.

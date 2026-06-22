@@ -8,10 +8,33 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJSON } from "../../../lib/json.js";
 import { loadDomain } from "../../core/domain-resolver.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ui/server/features/skills
-const PLUGIN = path.join(HERE, "..", "..", "..", "..", "plugin");
+const FRAMEWORK_DIR = path.join(HERE, "..", "..", "..", ".."); // repo root
+
+/** The active domain descriptor, resolved from the framework's OWN binding (`.xenomoon.json`
+ * "domain"). Kept free of config.js (whose import has load-time side effects) — it reads the binding
+ * directly via the side-effect-free domain-resolver, so this module stays loadable under
+ * `npm run validate`. null when unbound/unreadable. @type {import("../../core/domain-resolver.js").DomainDescriptor | null} */
+const ACTIVE_DOMAIN = (() => {
+  try {
+    const name = /** @type {{ domain?: string }} */ (
+      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, ".xenomoon.json"), "utf8"))
+    ).domain;
+    return name ? loadDomain(name, FRAMEWORK_DIR) : null;
+  } catch {
+    return null;
+  }
+})();
+
+/** The active domain's capability-plugin dir (its skills/agents live here). When unbound, this is a
+ * path that won't exist, so the guarded readers below yield zero skills/agents — correct for an
+ * empty/learning domain that ships no pre-baked capabilities. */
+const PLUGIN = ACTIVE_DOMAIN
+  ? path.join(FRAMEWORK_DIR, ACTIVE_DOMAIN.plugin)
+  : path.join(FRAMEWORK_DIR, "domains");
 export const SKILLS_DIR = path.join(PLUGIN, "skills");
 export const AGENTS_DIR = path.join(PLUGIN, "agents");
 
@@ -19,30 +42,10 @@ export const AGENTS_DIR = path.join(PLUGIN, "agents");
  * `orchestrator`; its skill set is ORCHESTRATOR_FRAMEWORK_SKILLS (in skill-catalog.js). */
 export const ORCH = "@orchestrator";
 
-/** The historical builder ids — the fallback if the reference domain's descriptor declares no
- * `builders` (an older/empty domain.json). @type {string[]} */
-const FALLBACK_BUILDERS = [
-  "godot-dev",
-  "godot-refactor",
-  "godot-combat",
-  "godot-player",
-  "godot-visuals",
-  "godot-assets",
-];
-
-/** The code-writers, sourced from the reference domain that owns plugin/ (godot today; re-homing
- * godot content into domains/godot/ is a later phase). Read via the side-effect-free domain-resolver
- * — NOT config.js — so this stays loadable under `npm run validate` with no bound project. godot-dev
- * is the core/general builder; the rest are specialists split off so each stays under the ~10-skill
- * index cap. Falls back to the historical list if the descriptor is missing/empty. @type {string[]} */
-export const BUILDERS = (() => {
-  try {
-    const b = loadDomain("godot").builders;
-    return b.length ? b : FALLBACK_BUILDERS;
-  } catch {
-    return FALLBACK_BUILDERS;
-  }
-})();
+/** The code-writer agent ids the `builders` skill-audience token resolves to — sourced from the
+ * active domain pack's `builders` list. Empty for a learning domain that declares none (the spine
+ * hardcodes no builders). @type {string[]} */
+export const BUILDERS = ACTIVE_DOMAIN?.builders ?? [];
 
 /** The frontmatter block (between the first two `---`) and the body that follows.
  * @param {string} text @returns {{ fm: string, body: string }} */
@@ -72,7 +75,14 @@ export function parseSkillsList(fm) {
 export function readSkills() {
   /** @type {Map<string, string[]>} */
   const skills = new Map();
-  for (const e of readdirSync(SKILLS_DIR, { withFileTypes: true })) {
+  /** @type {import("node:fs").Dirent[]} */
+  let entries;
+  try {
+    entries = readdirSync(SKILLS_DIR, { withFileTypes: true });
+  } catch {
+    return skills; // no <plugin>/skills dir → no skills (empty/learning domain)
+  }
+  for (const e of entries) {
     if (!e.isDirectory()) continue;
     const file = path.join(SKILLS_DIR, e.name, "SKILL.md");
     if (!existsSync(file)) continue;
@@ -96,7 +106,14 @@ export function readSkills() {
 export function readAgents() {
   /** @type {Map<string, {skills:string[],tools:string[],model:string|null,body:string}>} */
   const agents = new Map();
-  for (const f of readdirSync(AGENTS_DIR)) {
+  /** @type {string[]} */
+  let files;
+  try {
+    files = readdirSync(AGENTS_DIR);
+  } catch {
+    return agents; // no <plugin>/agents dir → no agents (empty/learning domain)
+  }
+  for (const f of files) {
     if (!f.endsWith(".md")) continue;
     const { fm, body } = split(readFileSync(path.join(AGENTS_DIR, f), "utf8"));
     const tools = (fm.match(/^tools:\s*(.+)$/m)?.[1] ?? "").split(",").map((s) => s.trim());

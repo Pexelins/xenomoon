@@ -103,11 +103,11 @@ export function saveSkillOverrides(overrides) {
  * from the Skill tool (files stay on disk). The set =
  *   ORCHESTRATOR_FRAMEWORK_SKILLS  (framework meta floor — always on)
  *   ∪ the built-in/workspace skills the user enabled via skillOverrides.
- * DOMAIN skills are deliberately EXCLUDED — both the 27 framework `godot-*` skills AND the game's
- * own `.claude/skills` (e.g. godot-art-style, godot-decal-vfx). The orchestrator only ROUTES; domain
- * skills belong to the implementer agents, not the hive. (Blanket-including game-local skills here
- * polluted the hive's index — its `godot-oneshot-vfx` bare name even pulled in the framework copy as
- * `xenomoon:godot-oneshot-vfx`.) This is also what finally makes `skillOverrides` do something.
+ * DOMAIN skills are deliberately EXCLUDED — both the framework's domain skills AND the project's
+ * own `.claude/skills`. The orchestrator only ROUTES; domain
+ * skills belong to the implementer agents, not the hive. (Blanket-including project-local skills here
+ * polluted the hive's index — a bare skill name could even pull in the framework copy under the
+ * `xenomoon:` namespace.) This is also what finally makes `skillOverrides` do something.
  *
  * Override semantics (skillOverrides: Record<name, "on"|"off">), applied to built-ins/workspace only:
  *   per-name "on"/"off" wins; else the "*" wildcard; else DEFAULT-DENY. An unconfigured project

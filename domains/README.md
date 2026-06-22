@@ -1,34 +1,34 @@
 # Domain packs
 
 A **domain pack** is what retargets this framework from one kind of work to another
-(Godot games today; Salesforce development next) without forking the spine. The spine
+(Node/web apps today; other domains next) without forking the spine. The spine
 (`ui/`, `.claude/`) stays domain-agnostic and reads per-domain values from the active
 pack via `ui/server/core/domain-resolver.js`. This whole directory is **additive** —
 upstream owns nothing here, so it never causes a merge conflict on a sync.
 
+The shipped packs are **`app`** and **`webapp`** — empty Node/web learning packs that ship
+no pre-baked capabilities. (The upstream we track is a Godot framework, but Xenomoon ships
+no godot domain, plugin, or engine binary.)
+
 ## Selecting the active domain
 
-First hit wins: `XENOMOON_DOMAIN` env → `.xenomoon.json` `"domain"` key → `godot` (default).
+A project is bound to a domain deterministically at install time: `forge new --domain <name>`
+writes a project lock (`.xenomoon-project.json`), which the spine reads as **authoritative**.
+With no lock, the binding comes from `XENOMOON_DOMAIN` env → `.xenomoon.json` `"domain"` key.
+There is **no privileged default**: with neither a lock nor an override, resolution throws —
+a project is never silently driven as some fallback domain.
 
 ## What a pack declares (`domains/<name>/domain.json`)
 
-| Field                                    | Used by                | Meaning                                                     |
-| ---------------------------------------- | ---------------------- | ----------------------------------------------------------- |
-| `engine.name` / `engine.projectFile`     | `config.js` (`ENGINE`) | runtime name + on-disk project marker                       |
-| `inventory.scenes` / `inventory.scripts` | `project-state.js`     | file extensions the live inventory scans                    |
-| `starter`                                | `new.js`               | starter folder to scaffold (relative to the framework root) |
+| Field                                    | Used by                    | Meaning                                                             |
+| ---------------------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `engine.name` / `engine.projectFile`     | `config.js` (`ENGINE`)     | runtime name + on-disk project marker                               |
+| `inventory.scenes` / `inventory.scripts` | `project-state.js`         | file extensions the live inventory scans                            |
+| `plugin`                                 | `config.js` / `session.js` | the domain's capability plugin dir (relative to the framework root) |
+| `orchestrator`                           | `config.js`                | the routing-prompt file (relative to the framework root)            |
+| `commands`                               | `gen-manifest.js`          | build/verify/drive commands written into the manifest               |
+| `starter`                                | `new.js`                   | starter folder to scaffold, or absent for install-in-place          |
+| `materializeIntoProject`                 | `materialize.js`           | whether install writes working files INTO the project tree          |
 
-`domains/godot/` reproduces the framework's original hardcoded values, so it is
-behavior-for-behavior identical to pre-domain-seam. It currently points at the existing
-top-level `plugin/` and `starter/` (the reference Godot pack).
-
-## Not yet routed through the pack (intentionally deferred)
-
-These stay Godot-specific in the spine until the first non-Godot domain needs them
-(then they get added here and logged in `docs/whitelabel/SEAMS.md`):
-
-- **Build/verify commands** (`gen-manifest.js` `commands` block — Godot CLI).
-- **Orchestrator prompt** (`ui/orchestrator.md` — names the Godot agents).
-- **The capability plugin set** (`session.js` loads the single `plugin/`; a domain will
-  likely load a shared core **plus** its own pack).
-- **Inventory field labels** (`scenes`/`scripts` naming in the UI).
+Every per-domain value — capability plugin, orchestrator prompt, build/verify commands,
+inventory extensions — comes from the pack, not hardcoded in the spine.

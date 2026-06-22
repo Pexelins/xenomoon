@@ -6,7 +6,9 @@
 
 White-label the upstream framework (a Godot game-dev pipeline) into a **domain-neutral** one
 that drives the same human-gated loop (designer → dev → verify → you) for _any_ kind of work.
-Godot is what we forked from — it stays as the upstream reference, not one of our products.
+Godot is what we forked from — it stays as the upstream reference, not one of our products. Xenomoon
+itself ships **no** godot: no godot domain, no engine plugin, no engine binary. The shipped domains
+are `app` and `webapp` (empty Node/web packs).
 
 Two ideas anchor it:
 
@@ -42,6 +44,6 @@ We are not building a rival agent runtime. We want to **use** OpenClaw and Herme
 
 ## What this is NOT (yet)
 
-No real package content (app/salesforce start empty). No OpenClaw/Hermes adapters built. No
+No real package content (`app` / `webapp` start empty). No OpenClaw/Hermes adapters built. No
 marketplace yet. No per-project _library_ isolation yet (today: domain-level isolation —
-app ≠ godot). These are later increments; see `docs/whitelabel/SEAMS.md` and the plan.
+`app` ≠ `webapp`). These are later increments; see `docs/whitelabel/SEAMS.md` and the plan.

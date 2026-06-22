@@ -17,7 +17,7 @@
  * @typedef {object} ProjectState
  * @property {string} name
  * @property {string} dir
- * @property {boolean} found - whether dir holds a Godot project (has project.godot)
+ * @property {boolean} found - whether dir holds a project for the active domain (its project marker exists)
  * @property {DesignDoc[]} designDocs
  * @property {LibraryEntry[]} library
  * @property {string[]} scenes

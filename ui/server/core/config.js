@@ -6,7 +6,6 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
-import { resolveEngineBin } from "./engine-bin.js";
 import { resolveActiveDomain } from "./domain-resolver.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -78,69 +77,42 @@ export const PROJECT_DIR = resolveProjectDir();
  * commands) from this descriptor instead of hardcoding them. The PROJECT's lock
  * (`.xenomoon-project.json`, written by `forge new --domain`) is authoritative; a conflicting
  * env `XENOMOON_DOMAIN` / `.xenomoon.json` override is refused (no silent override). With no
- * lock: override → "godot" (which reproduces the framework's original behavior). */
+ * lock: the override selects the domain (no privileged default). */
 export const DOMAIN = resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
 
 /** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
  * Claude Code plugin — the single source of truth, loaded into every session via the SDK
  * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
  * and the plugin provides the framework regardless of cwd. The path comes from the domain pack
- * (`godot` → the top-level `plugin/`); a non-godot domain ships its own under `domains/<name>/`. */
+ * (each domain ships its own under `domains/<name>/`). */
 export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
 
-/** The target engine: Godot or a source-compatible fork (Redot / Blazium). The
- * forks share Godot's project format, scene files, GDScript and CLI, so swapping
- * the binary is the whole switch — see docs/engines.md. Resolution (first hit
- * wins): env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) →
- * `.xenomoon.json` `engine` field → the active domain's defaults (Godot for the
- * default `godot` domain).
- *   - `projectFile`: on-disk marker used to detect a project. `project.godot` by
- *     default, which the forks also use, so detection works for them unchanged.
- *   - `bin`: optional engine executable the verify gate runs; when set it is
- *     exported to sessions as `$GODOT` (see session.js). Otherwise the game's
- *     `tools/validate.sh` resolves it from `$GODOT`/PATH. */
+/** The target runtime/engine for the active domain (e.g. `node` for web apps). The spine reads this
+ * from the bound domain pack — it does NOT hardcode any engine. Resolution (first hit wins): env
+ * (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json` `engine` field → the
+ * active domain's defaults.
+ *   - `projectFile`: on-disk marker used to detect a project (e.g. `package.json` for Node).
+ *   - `bin`: optional runtime executable a verify gate may run; null for runtimes (Node) that drive
+ *     their toolchain through package scripts. */
 export const ENGINE = {
   name: process.env.ENGINE_NAME ?? SAVED.engine?.name ?? DOMAIN.engine.name,
   projectFile:
     process.env.ENGINE_PROJECT_FILE ?? SAVED.engine?.projectFile ?? DOMAIN.engine.projectFile,
   bin: process.env.ENGINE_BIN ?? SAVED.engine?.bin ?? null,
 };
-/** Capitalized engine name for UI/CLI copy, e.g. "Godot", "Redot", "Blazium". */
+/** Capitalized runtime name for UI/CLI copy, e.g. "Node". */
 export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.slice(1);
 
-/** Merge a resolved engine binary into `.xenomoon.json` so the lookup is one-time, not
- * per-boot — every other saved field (projectDir, hermes, …) is preserved. Best-effort:
- * a write failure is non-fatal (the in-memory `$GODOT` still works for this run).
- * @param {string} bin */
-function persistEngineBin(bin) {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  const prev = /** @type {EngineConfig} */ (saved.engine ?? {});
-  try {
-    writeFileSync(
-      CONFIG_FILE,
-      JSON.stringify({ ...saved, engine: { ...prev, bin } }, null, 2) + "\n",
-    );
-  } catch {
-    /* non-fatal — $GODOT is still set in-process for this run */
-  }
-}
-
-/** The game's res:// mount name for the external shared-asset library — a symlink
- * materialize.js creates (`<game>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
- * at `res://x-shared-assets/models/<name>.glb`. One literal, shared across config /
+/** The project's mount name for the external shared-asset library — a symlink
+ * materialize.js creates (`<project>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
+ * at `x-shared-assets/models/<name>.glb`. One literal, shared across config /
  * materialize / asset-write / doctor / the client, to avoid drift. */
 export const RES_ASSET_MOUNT = "x-shared-assets";
 
 /** The external "shared asset library": free-library example assets (models/textures) the
- * game uses but kept OUTSIDE its tree, so the game stays pure game. Symlinked into the game
- * at `res://x-shared-assets/` — and, unlike the knowledge library, NOT .gdignored, so Godot
- * scans and imports it. The framework is per-game, so this dir is effectively this game's,
+ * project uses but kept OUTSIDE its tree, so the project stays pure. Symlinked into the project
+ * at `x-shared-assets/` — and, unlike the knowledge library, scanned/imported by the engine.
+ * The framework is per-project, so this dir is effectively this project's,
  * just external. Resolution (first hit wins): env `XENOMOON_ASSET_LIBRARY` → `.xenomoon.json`
  * `assetLibrary` → default sibling `../x-shared-assets`. May start empty — the framework
  * only needs to know where it is. */
@@ -150,28 +122,6 @@ export const ASSET_LIBRARY = path.resolve(
     path.join(FRAMEWORK_DIR, "..", RES_ASSET_MOUNT),
 );
 
-// Resolve the engine binary ONCE and propagate it as $GODOT so the verify gate and every
-// agent shell use it with no per-call setup. The Claude Code session the SDK spawns inherits
-// this process's env, so every `$GODOT` call (tools/validate.sh, the godot-verify skill) hits
-// the chosen binary — killing the per-shell `GODOT=…` re-derivation that otherwise repeats on
-// every Bash call. Precedence: an explicit engine.bin (env/.xenomoon.json) wins untouched; else,
-// when nothing is configured, auto-probe and PERSIST the result so the lookup is truly one-time.
-// Load-time side effect, by design. Skipped for engines without a binary (e.g. Node), which run
-// their toolchain via package scripts and have no $GODOT to export — gated on the bound domain's
-// engine.needsBinary, not the engine name, so the spine never special-cases "godot".
-if (DOMAIN.engine.needsBinary) {
-  if (ENGINE.bin) {
-    process.env.GODOT = ENGINE.bin;
-  } else {
-    const resolved = resolveEngineBin(ENGINE.name);
-    if (resolved) {
-      ENGINE.bin = resolved;
-      process.env.GODOT = resolved;
-      persistEngineBin(resolved);
-    }
-  }
-}
-
 // Expose the plugin and its knowledge base to the spawned session so framework agents
 // can locate the library (and the framework itself, for promotion / self-improvement)
 // regardless of the game cwd — they read/write via these paths, granted by
@@ -179,19 +129,19 @@ if (DOMAIN.engine.needsBinary) {
 process.env.XENOMOON_PLUGIN = FRAMEWORK_PLUGIN_DIR;
 process.env.XENOMOON_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 // The external shared-asset library (see ASSET_LIBRARY). Exported so the spawned session,
-// its agents (asset-advisor reads/verifies the sourced file here) and validate.sh can locate
-// it regardless of cwd; the game reaches the same bytes via the res://x-shared-assets symlink.
+// its agents (asset-advisor reads/verifies the sourced file here) and verify tooling can locate
+// it regardless of cwd; the project reaches the same bytes via the x-shared-assets symlink.
 process.env.XENOMOON_ASSET_LIBRARY = ASSET_LIBRARY;
 
 /** The generated per-game facts manifest (engine bin/version, render config, commands,
  * capability registry) — written by gen-manifest.js inside prepareGame(). Exported so the
  * spawned session and `tools/forge-facts` can read deterministic project facts instead of
- * re-deriving them (re-reading project.godot, re-globbing tools/) on every task. */
+ * re-deriving them (re-reading the project marker, re-globbing tools/) on every task. */
 export const MANIFEST_FILE = path.join(PROJECT_DIR, ".xenomoon", "manifest.json");
 process.env.XENOMOON_MANIFEST = MANIFEST_FILE;
 
-/** Whether PROJECT_DIR actually holds an engine project (Godot or a fork) —
- * drives the startup warning and the UI's empty-state banner. */
+/** Whether PROJECT_DIR actually holds a project for the active domain (its
+ * on-disk marker exists) — drives the startup warning and the UI's empty-state banner. */
 export const PROJECT_FOUND = existsSync(path.join(PROJECT_DIR, ENGINE.projectFile));
 export const PORT = Number(process.env.PORT ?? 3117);
 
@@ -214,11 +164,6 @@ export const FORM_TOOL = "mcp__ui__form";
 // list (see task-tool.js). Like the form tool it's a UI-control surface, not a
 // real side effect, so it bypasses the permission policy.
 export const TASK_TOOL = "mcp__ui__tasks";
-
-// In-process MCP tool the agent calls to request one art asset (see asset-tool.js).
-// Like the task tool it only files a task-board item (a UI-control surface, no real
-// side effect), so it bypasses the permission policy.
-export const ASSET_TOOL = "mcp__ui__request_asset";
 
 // In-process MCP tool a (typically backgrounded) agent calls to ask the user a
 // question WITHOUT blocking — it files a question onto the board and returns
@@ -404,8 +349,8 @@ export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?
 export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").EffortLevel} */ (
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );
-// The orchestrator routing prompt comes from the active domain pack (`godot` → ui/orchestrator.md);
-// a non-godot domain ships its own under domains/<name>/. Read once at startup.
+// The orchestrator routing prompt comes from the active domain pack (each domain ships its own
+// under domains/<name>/). Read once at startup.
 export const ORCHESTRATOR_PROMPT = readFileSync(
   path.join(FRAMEWORK_DIR, DOMAIN.orchestrator),
   "utf8",

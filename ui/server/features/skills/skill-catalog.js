@@ -32,15 +32,12 @@ export const BUILTIN_SKILLS = [
   "write-a-skill",
 ];
 
-/** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
- * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
- * from loading `godot-*` skills (those are implementers' tools, scoped per-agent via each agent's
- * frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
- * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
- * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
- * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
- * @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["caveman", "quick", "autonomous-main-goal"];
+/** Framework-plugin skills the orchestrator / main session always sees — the always-on "floor",
+ * cross-checked by gen-skill-scope.js against the active domain's plugin skills on disk. EMPTY
+ * today: the spine ships no plugin skills of its own, and the current domains (webapp/app) are
+ * empty learning packs that ship none. A domain — or a future shared core plugin — that ships
+ * `orchestrator`-tagged skills repopulates this. @type {string[]} */
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = [];
 
 /** Parse the first `name:` and `description:` values from YAML frontmatter.
  * @param {string} text @returns {{ name: string, description: string } | null} */

@@ -85,7 +85,7 @@ export function projectState() {
   let name = path.basename(dir);
   try {
     const raw = readFileSync(path.join(dir, ENGINE.projectFile), "utf8");
-    // package.json (Node) → "name"; project.godot (Godot INI) → config/name="…".
+    // package.json (Node) → "name"; an INI-style project marker → config/name="…".
     if (ENGINE.projectFile.endsWith(".json")) {
       const pkg = /** @type {{ name?: unknown }} */ (parseJSON(raw));
       if (typeof pkg.name === "string" && pkg.name) name = pkg.name;
@@ -95,12 +95,12 @@ export function projectState() {
     }
   } catch {}
   // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
-  // Node repo's inventory from drowning in dependency files. Godot declares none (whole-tree scan).
+  // Node repo's inventory from drowning in dependency files. A domain may declare none (whole-tree scan).
   const ignore = new Set(DOMAIN.inventory.ignore);
   return {
     name,
     dir,
-    // false → PROJECT_DIR has no project.godot; the UI shows a setup banner
+    // false → PROJECT_DIR has no project marker; the UI shows a setup banner
     // instead of empty panels (see loadState in project-tree.js).
     found: PROJECT_FOUND,
     designDocs: walk(path.join(dir, "design"), [".md"], [], dir)

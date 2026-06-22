@@ -8,8 +8,8 @@
 // `/plugin install` (printed by doctor). The committed project stays pure.
 //
 // Usage:
-//   npm run new -- ../mygame                 (godot by default; scaffold or wire in place)
 //   npm run new -- ../myapp --domain=app     (install the `app` domain into an existing project)
+//   npm run new -- ../mysite --domain=webapp (install the `webapp` domain; scaffold or wire in place)
 //
 // The chosen domain is written as a project-owned lock (.xenomoon-project.json), committed with
 // the project so the binding travels and the framework can't later drive it as the wrong domain.
@@ -106,7 +106,7 @@ function ensureIgnores(dir) {
 }
 
 // 0. Ensure the target exists. How the binding is remembered depends on the domain:
-//    - materialize domains (Godot) write a project-owned lock, committed so it travels with the
+//    - materialize domains write a project-owned lock, committed so it travels with the
 //      project (the child steps also resolve it via the XENOMOON_DOMAIN env set above).
 //    - every other domain stays OUT of the project entirely — the binding lives in the framework's
 //      own .xenomoon.json (domain persisted in step 2b), so the project is never touched.

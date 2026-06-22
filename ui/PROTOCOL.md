@@ -23,7 +23,7 @@
 
 ```json
 {
-  "name": "...", // from project.godot config/name
+  "name": "...", // from the project marker (e.g. package.json "name")
   "dir": "/abs/path",
   "designDocs": [{ "path": "design/x.md", "title": "first # heading" }],
   "library": [
@@ -33,10 +33,10 @@
       "verdict": "adopted <name> | rejected — … | parked | null"
     }
   ],
-  "scenes": ["scenes/main.tscn"],
-  "scripts": ["tools/verify_scene.gd"],
-  "agents": [{ "name": "godot-dev", "model": "sonnet" }], // model from agent frontmatter
-  "skills": ["godot-verify", "..."],
+  "scenes": [], // per-domain "scene"-like inventory; empty for Node/web domains
+  "scripts": ["src/index.js"], // per-domain source inventory (extensions from the domain pack)
+  "agents": [{ "name": "developer", "model": "sonnet" }], // model from agent frontmatter
+  "skills": ["verify", "..."],
   // external Hermes researcher config — key-free (hasKey only); never returns the API key.
   // `model`/`models` are cosmetic labels (the effective model is chosen server-side in Hermes);
   // `apiUrl` defaults to the gateway's API server on :8642.
