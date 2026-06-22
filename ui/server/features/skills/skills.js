@@ -2,7 +2,7 @@
 // exposes the known built-in Claude Code skill list, and reads/writes the
 // skillOverrides block in the game project's .claude/settings.json.
 // The setup wizard writes .xenomoon/skill-setup.json; the server applies it on next start.
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { PROJECT_DIR } from "../../core/config.js";
 import { parseJSON } from "../../../lib/json.js";
@@ -40,6 +40,7 @@ export function hasSkillSetup() {
  * @returns {{ ok: true } | { error: string }} */
 export function saveSkillSetup(context, overrides) {
   try {
+    mkdirSync(path.dirname(SETUP_FILE), { recursive: true });
     writeFileSync(SETUP_FILE, JSON.stringify({ context, overrides }, null, 2) + "\n");
     return { ok: true };
   } catch (e) {

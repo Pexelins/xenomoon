@@ -12,3 +12,6 @@ game_assets/
 # cloned by `npm run codex:setup`). Not part of the framework — never committed.
 vendor/
 
+# Local server run dir (pidfile + log) written by the tagged-instance launcher.
+.xm-run/
+
