@@ -86,7 +86,7 @@ try {
     );
   });
 
-  check("the shipped fork is Godot-free (strip-godot guarantee)", () => {
+  check("the shipped fork is Godot-free (no godot domain / starter / Hive)", () => {
     assert.ok(!existsSync(path.join(fw, "domains", "godot")), "domains/godot must NOT ship");
     assert.ok(!existsSync(path.join(fw, "starter")), "starter/ must NOT ship");
     assert.ok(
@@ -126,7 +126,7 @@ try {
     );
   });
 
-  check("the project stays PURE — webapp materializes nothing into it", () => {
+  check("the project stays PURE — webapp copies no framework code in", () => {
     assert.ok(!existsSync(path.join(project, "tools")), "tools/ must NOT be copied in");
     assert.ok(!existsSync(path.join(project, "library")), "library/ must NOT be linked in");
     assert.ok(
@@ -145,6 +145,11 @@ try {
       existsSync(path.join(project, "package.json")),
       "the project's own package.json is untouched",
     );
+  });
+
+  check("install gitignores .xenomoon/ in the project (temp tasks/state never committed)", () => {
+    const gi = readFileSync(path.join(project, ".gitignore"), "utf8");
+    assert.ok(gi.includes(".xenomoon/"), ".gitignore must ignore .xenomoon/ (per-project state)");
   });
 
   // doctor already ran inside `forge new` (it throws on a hard failure, which would have failed the

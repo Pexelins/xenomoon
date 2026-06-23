@@ -16,7 +16,7 @@ framework loads into every project session.
 
 ## Before committing
 
-- `npm run validate` (tsc + eslint zero-warnings + structure + skill-scope + `check:godot`) must pass.
+- `npm run validate` (tsc + eslint zero-warnings + structure + skill-scope) must pass.
 - `npx prettier --write` keeps formatting clean (lint-staged also runs it on commit).
 
 ## Layout
@@ -41,6 +41,6 @@ project,autonomous}/`. `ui/lib/` — shared JSDoc typedefs + helpers.
 - `ui/server/core/domain-resolver.js` is the **seam**: the spine reads per-domain values (engine,
   inventory, plugin, orchestrator, commands) from the active pack instead of hardcoding them — it
   never branches on the domain name. Godot is NOT a domain here; it stays the exclusive upstream
-  product, and `scripts/strip-godot.mjs` keeps this fork Godot-free on every sync.
+  product, and we pull only curated, domain-agnostic updates so the engine payload never lands.
 - Never put project-specific files in the framework; it points at an external project, reads it in
   place, and the project stays pure.

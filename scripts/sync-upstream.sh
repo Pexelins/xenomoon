@@ -29,16 +29,12 @@ if ! git merge --no-ff upstream/main; then
   echo
   echo "Merge conflicts — resolve them, then finish the sync by hand:"
   echo "  - keep README ours; keep the DOMAIN seam in ui/server/core/config.js"
-  echo "  - re-apply the asset/level + FEATURES.md divergences per docs/whitelabel/SEAMS.md"
-  echo "  - node scripts/strip-godot.mjs        # delete the re-merged Godot payload"
+  echo "  - re-drop the intentional divergences (godot-docs, FEATURES.md) per docs/whitelabel/SEAMS.md"
   echo "  - git add -u && git commit            # complete the merge"
-  echo "  - node scripts/rebrand.mjs && git commit -am 'sync: strip godot + re-flip rebrand'"
-  echo "  - node scripts/strip-godot.mjs --check && node scripts/rebrand.mjs --check && npm run validate"
+  echo "  - node scripts/rebrand.mjs && git commit -am 'rebrand: re-flip merged upstream'"
+  echo "  - node scripts/rebrand.mjs --check && npm run validate && npm run test:onboarding"
   exit 1
 fi
-
-echo "==> stripping the re-merged Godot payload (idempotent; keeps the fork Godot-free)"
-node scripts/strip-godot.mjs
 
 if [ "$RUN_TEST" = 1 ]; then
   echo "==> onboarding gate"
@@ -47,7 +43,7 @@ if [ "$RUN_TEST" = 1 ]; then
 fi
 
 echo
-echo "Done. upstream/main merged + Godot stripped. Re-brand the merged-in upstream strings:"
-echo "    node scripts/rebrand.mjs && git commit -am 'sync: strip godot + re-flip rebrand'"
-echo "    node scripts/strip-godot.mjs --check && node scripts/rebrand.mjs --check   # both clean"
+echo "Done. upstream/main merged into our 'main' trunk. Re-brand the merged-in upstream strings:"
+echo "    node scripts/rebrand.mjs && git commit -am 'rebrand: re-flip merged upstream'"
+echo "    node scripts/rebrand.mjs --check   # only arthur0n + docs/whitelabel + scripts keep 'xenodot'"
 echo "Publish to our repo:  git push xenomoon main"

@@ -13,7 +13,7 @@
 
 Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **triage → solution → implement → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that pipeline for whatever you're building.
 
-Godot stays the exclusive upstream product we forked from — it is **not** a domain here. We pull only its domain-agnostic improvements and keep this fork Godot-free (`scripts/strip-godot.mjs`).
+Godot stays the exclusive upstream product we forked from — it is **not** a domain here. We pull only its (curated) domain-agnostic improvements, so the engine payload never lands.
 
 ## Quick start — install into a project
 
@@ -70,7 +70,7 @@ Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a 
 
 ## Tracking upstream
 
-We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we merge upstream's changes in, strip the re-merged Godot payload (`scripts/strip-godot.mjs`), and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
+We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we take upstream's curated, domain-agnostic changes (never the engine payload) and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
 
 ## License
 

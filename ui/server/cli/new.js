@@ -77,18 +77,16 @@ process.env.XENOMOON_DOMAIN = domainName;
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });
 
 /** Make sure the project ignores the framework's generated/working paths, so they're never
- * committed (the scaffolded starter already lists these; this covers an existing project). The
- * domain lock itself is intentionally NOT ignored — it is committed with the project. @param {string} dir */
-function ensureIgnores(dir) {
+ * committed. `.xenomoon/` (the per-project task board / autonomous / skill-setup state the framework
+ * writes for EVERY domain) is ALWAYS ignored — so temp tasks never land in the project's repo;
+ * materialize domains add their working dirs too. The domain lock itself is intentionally NOT
+ * ignored — it is committed with the project. @param {string} dir @param {boolean} materializes */
+function ensureIgnores(dir, materializes) {
   const file = path.join(dir, ".gitignore");
-  const need = [
-    "/tools/",
-    "/library",
-    "/x-shared-assets",
-    "/transcripts/",
-    ".xenomoon/",
-    ".claude/projects/",
-  ];
+  // Always ignored — every domain writes session/task/autonomous state into <project>/.xenomoon/.
+  const need = [".xenomoon/", ".claude/projects/"];
+  // Materialize domains also drop working files (tools/, library/, …) into the project tree.
+  if (materializes) need.push("/tools/", "/library", "/x-shared-assets", "/transcripts/");
   let cur = "";
   try {
     cur = readFileSync(file, "utf8");
@@ -135,7 +133,9 @@ if (existsSync(marker)) {
       `starter — installing into it as-is (bring your own project).`,
   );
 }
-if (DOMAIN.materializeIntoProject) ensureIgnores(target);
+// Always — every domain writes <project>/.xenomoon/ state, so it must be gitignored even for a
+// non-materialize (install-in-place) domain like webapp.
+ensureIgnores(target, DOMAIN.materializeIntoProject);
 
 // 2. Remember the path (writes .xenomoon.json projectDir).
 node(path.join(here, "setup.js"), target);

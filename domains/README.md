@@ -7,7 +7,7 @@ today; Salesforce, etc. next) without forking the spine. The spine (`ui/`, `.cla
 here, so it never causes a merge conflict on a sync.
 
 Godot is NOT a domain here. It stays the exclusive upstream product (`arthur0n/xenodot-forge`); this
-fork pulls only domain-agnostic improvements, and `scripts/strip-godot.mjs` keeps it Godot-free.
+fork pulls only domain-agnostic improvements (curated), so the engine payload never lands.
 
 ## Selecting the active domain
 
