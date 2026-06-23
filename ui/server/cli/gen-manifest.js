@@ -18,19 +18,19 @@ import { ENGINE, DOMAIN, RES_ASSET_MOUNT } from "../core/config.js";
 /** @typedef {{ renderer: string|null, engine_version: string|null, viewport_width: number|null,
  *   viewport_height: number|null, stretch_mode: string, stretch_aspect: string,
  *   stretch_scale_mode: string|null }} RenderConfig */
-/** @typedef {{ engine: { name: string, bin: string|null, version: string|null, projectFile: string },
+/** @typedef {{ engine: { name: string, version: string|null, projectFile: string },
  *   render: RenderConfig, commands: Record<string,string>, input_actions: string[],
  *   layout: { entry_point: string|null, tools_dir: string, library: string, asset_mount: string },
  *   capabilities: { registry: string, tools: string[] } }} Manifest */
 
-/** Strip one layer of surrounding double quotes from a project.godot scalar. @param {string} v */
+/** Strip one layer of surrounding double quotes from a project-file scalar. @param {string} v */
 const unquote = (v) => v.replace(/^"(.*)"$/, "$1");
 
-/** Tolerant line parser for project.godot's INI-ish format. Captures single-line `key=value`
+/** Tolerant line parser for the engine's project file (INI-style). Captures single-line `key=value`
  * pairs (keys are already slash-namespaced, e.g. `window/size/viewport_width`) and, within the
  * `[input]` section, just the action NAMES (the `name={` headers) — never the multi-line event
  * dicts. @param {string} text @returns {{ flat: Record<string,string>, inputActions: string[] }} */
-function parseProjectGodot(text) {
+function parseProjectFile(text) {
   /** @type {Record<string,string>} */
   const flat = {};
   /** @type {string[]} */
@@ -99,7 +99,7 @@ function listTools(toolsDir) {
 export function generateManifest(projectDir) {
   const projectFile = path.join(projectDir, ENGINE.projectFile);
   const { flat, inputActions } = existsSync(projectFile)
-    ? parseProjectGodot(readFileSync(projectFile, "utf8"))
+    ? parseProjectFile(readFileSync(projectFile, "utf8"))
     : { flat: {}, inputActions: [] };
 
   const render = renderBlock(flat);
@@ -110,15 +110,13 @@ export function generateManifest(projectDir) {
     // How agents find + run the engine — the fact re-derived 600+ times in the session logs.
     engine: {
       name: ENGINE.name,
-      bin: ENGINE.bin, // resolved + persisted by config.js; also exported as $GODOT (deferred seam)
       version: render.engine_version,
       projectFile: ENGINE.projectFile,
     },
     // Effective render pipeline — read this instead of re-parsing the engine project file's [display].
     render,
     // Canonical build/verify/drive commands (the "/run" payload) — declared by the active
-    // domain pack (a binary-backed engine like the upstream Godot product wires its $GODOT verify
-    // gate into the session; the webapp domain ships its own, possibly none while it's still empty).
+    // domain pack (the webapp domain ships its own, possibly none while it's still empty).
     commands: DOMAIN.commands,
     input_actions: inputActions,
     layout: {
@@ -147,8 +145,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const target = process.argv[2] ? path.resolve(process.argv[2]) : PROJECT_DIR;
   const m = generateManifest(target);
   console.log(
-    `gen-manifest: ${target}/.xenomoon/manifest.json — engine ${m.engine.name} ${m.engine.version ?? "?"} ` +
-      `(bin ${m.engine.bin ?? "unresolved"}), ${m.input_actions.length} input actions, ` +
-      `${m.capabilities.tools.length} tools.`,
+    `gen-manifest: ${target}/.xenomoon/manifest.json — engine ${m.engine.name} ${m.engine.version ?? "?"}, ` +
+      `${m.input_actions.length} input actions, ${m.capabilities.tools.length} tools.`,
   );
 }

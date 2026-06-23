@@ -95,9 +95,9 @@ const checks = [
     label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
   },
   {
-    // Only a domain that materializes tools INTO the project (Godot's tools/validate.sh verify
-    // gate) has this to check; a domain that verifies via package scripts (Node) materializes
-    // nothing, so it's N/A there. HARD only when the domain writes tools into the project.
+    // Only a domain that materializes tools INTO the project (an engine that materializes its
+    // verify tools into the project) has this to check; a domain that verifies via package scripts
+    // (Node) materializes nothing, so it's N/A there. HARD only when the domain writes tools into the project.
     ok: DOMAIN.materializeIntoProject
       ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh"))
       : true,
@@ -107,19 +107,13 @@ const checks = [
       : `${DOMAIN.label} verifies via package scripts (no materialized tools/)`,
   },
   {
-    // Only the Godot family runs an external engine binary; other runtimes (Node) drive their
-    // toolchain through package scripts, so there is no $GODOT to resolve.
-    ok: DOMAIN.engine.needsBinary ? Boolean(ENGINE.bin) : true,
+    ok: true,
     hard: false,
-    label: !DOMAIN.engine.needsBinary
-      ? `${ENGINE_LABEL} toolchain via package scripts (no engine binary needed)`
-      : ENGINE.bin
-        ? `${ENGINE_LABEL} binary resolved ($GODOT=${ENGINE.bin})`
-        : `${ENGINE_LABEL} binary not found — set GODOT=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
+    label: `${ENGINE_LABEL} toolchain via package scripts`,
   },
   // The materialized-into-project artifacts (facts manifest, library + asset symlinks) only exist
-  // for a domain that opts into writing files into the project tree (Godot). Omit the rows entirely
-  // for a domain that materializes nothing, rather than show them perpetually "—".
+  // for a domain that opts into writing files into the project tree (a binary-backed engine). Omit
+  // the rows entirely for a domain that materializes nothing, rather than show them perpetually "—".
   ...(DOMAIN.materializeIntoProject
     ? [
         {

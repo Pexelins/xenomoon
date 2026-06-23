@@ -44,4 +44,4 @@ We are not building a rival agent runtime. We want to **use** OpenClaw and Herme
 
 No real package content (app/salesforce start empty). No OpenClaw/Hermes adapters built. No
 marketplace yet. No per-project _library_ isolation yet (today: domain-level isolation —
-app ≠ godot). These are later increments; see `docs/whitelabel/SEAMS.md` and the plan.
+app ≠ a materialized binary-engine domain). These are later increments; see `docs/whitelabel/SEAMS.md` and the plan.

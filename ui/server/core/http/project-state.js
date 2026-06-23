@@ -95,8 +95,8 @@ export function projectState() {
     }
   } catch {}
   // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
-  // Node/webapp repo's inventory from drowning in dependency files. A binary-backed engine like the
-  // upstream Godot product declares none (whole-tree scan).
+  // Node/webapp repo's inventory from drowning in dependency files. A domain may declare none for a
+  // whole-tree scan.
   const ignore = new Set(DOMAIN.inventory.ignore);
   return {
     name,

@@ -96,8 +96,9 @@ try {
   });
 
   // ---- forge new --domain webapp → a fresh project (a minimal package.json app) ----
-  // webapp installs IN PLACE and writes nothing into the project (it binds via the framework's
-  // own .xenomoon.json), so the project must stay byte-for-byte its own.
+  // webapp installs IN PLACE: it binds via the framework's own .xenomoon.json and copies no framework
+  // CODE in. The only things it touches in the project are a .gitignore rule and, when the project has
+  // none, a seeded CLAUDE.md project-facts template (the project's own doc) — both asserted below.
   const project = path.join(work, "app");
   mkdirSync(project, { recursive: true });
   writeFileSync(
@@ -150,6 +151,20 @@ try {
   check("install gitignores .xenomoon/ in the project (temp tasks/state never committed)", () => {
     const gi = readFileSync(path.join(project, ".gitignore"), "utf8");
     assert.ok(gi.includes(".xenomoon/"), ".gitignore must ignore .xenomoon/ (per-project state)");
+  });
+
+  check("install seeds a CLAUDE.md project-facts template when the project has none", () => {
+    const md = path.join(project, "CLAUDE.md");
+    assert.ok(existsSync(md), "CLAUDE.md must be seeded when the project ships none");
+    const txt = readFileSync(md, "utf8");
+    assert.ok(
+      txt.includes("onboarding-fixture"),
+      "{{PROJECT_NAME}} must be substituted from the project's package.json name",
+    );
+    assert.ok(
+      !txt.includes("{{PROJECT_NAME}}"),
+      "the PROJECT_NAME placeholder must not remain after seeding",
+    );
   });
 
   // doctor already ran inside `forge new` (it throws on a hard failure, which would have failed the

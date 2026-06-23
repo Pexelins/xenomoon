@@ -1,7 +1,7 @@
 // Skill catalog — the ONE source of truth for the built-in Claude Code skill names and the
 // workspace-skill reader. Kept deliberately dependency-light (only node:fs/os/path): it must NOT
-// pull in core/config.js, whose import has load-time side effects (engine-bin probing that can
-// write .xenomoon.json, process.exit on a bad --allow). That side-effect chain is fine for the
+// pull in core/config.js, whose import has load-time side effects (it resolves the active domain and
+// can process.exit on a bad --allow). That side-effect chain is fine for the
 // server but wrong for the standalone `cli/skill-setup.js`, which is why the built-in list used to
 // be duplicated there. Both skills.js (server feature) and cli/skill-setup.js import it instead, so
 // the list lives in exactly one place and can't drift.

@@ -21,13 +21,23 @@ wrong domain.
 | Field                                       | Used by                | Meaning                                                          |
 | ------------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
 | `engine.name` / `engine.projectFile`        | `config.js` (`ENGINE`) | runtime name + on-disk project marker                            |
-| `engine.needsBinary`                        | `config.js`            | engine runs via an external binary (false for Node)              |
 | `inventory.scenes` / `.scripts` / `.ignore` | `project-state.js`     | file extensions the live inventory scans, plus dirs to skip      |
 | `plugin`                                    | `session.js`           | the domain's capability plugin (loaded alongside CORE `plugin/`) |
 | `orchestrator`                              | `config.js`            | the routing prompt loaded into the session                       |
 | `commands`                                  | `gen-manifest.js`      | build/verify commands written into the manifest                  |
 | `populated`                                 | `doctor.js`            | ships capabilities (hard checks) vs. learns the project          |
 | `materializeIntoProject`                    | `materialize.js`       | write framework files into the project tree (default false)      |
+
+A pack may also ship `templates/CLAUDE.md` — a project-facts template `forge new` seeds into a
+freshly-bound project (falling back to the CORE neutral `plugin/templates/CLAUDE.md`; an existing
+`CLAUDE.md` is never overwritten).
+
+## Shared CORE infrastructure (free to every pack)
+
+Beyond what a pack declares, every session inherits the spine's shared capabilities — the
+cross-session task board, the promotions graduation path, autonomous mode, the user-ask channels, and
+the seeded convention floor. A pack's `orchestrator.md` should **use** these, not reinvent them. See
+[`plugin/PATTERNS.md`](../plugin/PATTERNS.md).
 
 ## Shipped packs
 

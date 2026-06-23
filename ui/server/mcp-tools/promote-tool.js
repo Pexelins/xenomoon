@@ -25,7 +25,7 @@ export function makePromoteTool(send) {
       name: z
         .string()
         .describe(
-          "Its name as it lives game-local: a tools/ filename (e.g. profile_frame.gd), a " +
+          "Its name as it lives game-local: a tools/ filename (e.g. profile-handler.js), a " +
             ".claude/skills/<name> dir, or a .claude/agents/<name>(.md).",
         ),
       reason: z

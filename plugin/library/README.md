@@ -5,8 +5,8 @@ Nothing here loads into an agent's context automatically. These are durable **re
 past decisions. Hot knowledge (always- or trigger-loaded) lives in the orchestrator +
 `.claude/skills/`; this folder is everything worth keeping that should NOT cost tokens on every task.
 
-This is the **CORE** library and ships **empty**. Upstream's Godot research records are stripped from
-the fork (we pull only curated, domain-agnostic updates). Real, per-project research accrues in the **active domain
+This is the **CORE** library and ships **empty**. The upstream's domain-specific research records are
+stripped (we pull only curated, domain-agnostic updates). Real, per-project research accrues in the **active domain
 pack's** library (`domains/<name>/plugin/library/`, where `$XENOMOON_LIBRARY` points) as the
 orchestrator learns the project; broadly-useful findings promote up alongside the capability.
 

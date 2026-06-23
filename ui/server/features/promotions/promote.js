@@ -7,7 +7,7 @@
 //
 // Two modes:
 //   • Explicit:        npm run promote -- <skills|agents|tools> <name> [/path/to/game]
-//                        e.g. npm run promote -- tools profile_frame.gd
+//                        e.g. npm run promote -- tools profile-handler.js
 //   • Manifest-driven: npm run promote -- --pending [/path/to/game]
 //                        promotes every APPROVED entry in .xenomoon/promotions.json (filed
 //                        via mcp__ui__promote, approved in the UI) and marks it `promoted`.

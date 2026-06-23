@@ -32,17 +32,15 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  * @property {boolean} populated whether the domain ships pre-baked capabilities (webapp) or
  *           starts empty and learns the project (new domains). Drives whether `doctor`'s
  *           agent/skill/tool checks are hard or informational.
- * @property {{ name: string, projectFile: string, needsBinary: boolean }} engine
- *           on-disk project marker + engine/runtime name; needsBinary = the engine runs through an
- *           external binary the verify gate resolves/exports (a binary-backed engine like the
- *           upstream Godot product — a deferred seam) vs. package scripts (Node/webapp)
+ * @property {{ name: string, projectFile: string }} engine
+ *           on-disk project marker + engine/runtime name (package scripts drive the toolchain)
  * @property {{ scenes: string[], scripts: string[], ignore: string[] }} inventory
  *           file extensions the live project inventory scans for, plus directory names to skip
  *           (e.g. node_modules, dist) — dot-dirs are always skipped
  * @property {boolean} materializeIntoProject whether install writes framework working files INTO the
  *           project tree (tools/ library/ x-shared-assets/ .xenomoon/ + a committed lock + .gitignore
  *           rules) — true only for a domain that needs real files at a fixed in-project path (the kind
- *           a binary-backed engine like the upstream Godot product uses; a deferred seam).
+ *           a binary-backed engine would use; a deferred seam).
  *           Default false: the framework writes nothing into the bound project.
  * @property {string|null} starter starter folder to scaffold (relative to the framework dir),
  *           or null for an install-into-existing domain that never scaffolds
@@ -54,7 +52,7 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  */
 
 /** Raw parsed domain.json — every leaf is `unknown` until validated. */
-/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown, needsBinary?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
+/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
 
 /** @param {unknown} v @returns {boolean} */
 const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
@@ -117,17 +115,12 @@ function normalizeDescriptor(raw, name) {
     engine: {
       name: /** @type {string} */ (engineName),
       projectFile: /** @type {string} */ (projectFile),
-      // Optional: does this engine run via an external binary (a binary-backed engine like the
-      // upstream Godot product — a deferred seam) vs package scripts (Node/webapp)? Default false
-      // — the webapp / Node domain needs no $GODOT-style probe.
-      needsBinary: raw.engine?.needsBinary === true,
     },
     inventory: {
       scenes: /** @type {string[]} */ (scenes),
       scripts: /** @type {string[]} */ (scripts),
       // Optional: directory names the inventory scan skips (e.g. node_modules). Defaults to none,
-      // preserving a whole-tree scan (as a binary-backed engine like the upstream Godot product
-      // would want).
+      // preserving a whole-tree scan.
       ignore: strArrayOr(ignore),
     },
     // Optional: a domain that only installs into existing projects (e.g. app) declares no starter.
@@ -139,8 +132,7 @@ function normalizeDescriptor(raw, name) {
     orchestrator: /** @type {string} */ (orchestrator),
     commands: /** @type {Record<string,string>} */ (commands ?? {}),
     // Optional: write framework working files INTO the project tree? Default false (agnostic) — only
-    // a domain that needs real files at a fixed in-project path (the kind a binary-backed engine like
-    // the upstream Godot product uses; a deferred seam) opts in with true.
+    // a domain that needs real files at a fixed in-project path (a deferred seam) opts in with true.
     materializeIntoProject: raw.materializeIntoProject === true,
   };
 }
@@ -232,4 +224,16 @@ export function loadDomain(name, frameworkDir = SELF_FRAMEWORK_DIR) {
  *  @param {string} projectDir @param {string} [frameworkDir] @returns {DomainDescriptor} */
 export function resolveActiveDomain(projectDir, frameworkDir = SELF_FRAMEWORK_DIR) {
   return loadDomain(resolveDomainName(projectDir, frameworkDir), frameworkDir);
+}
+
+/** Resolve the CLAUDE.md "project facts" template install seeds into a freshly-bound project: the
+ *  active domain's own template (`domains/<name>/templates/CLAUDE.md`) if the pack ships one, else the
+ *  CORE neutral baseline (`plugin/templates/CLAUDE.md`). Returns an absolute path, or null if neither
+ *  exists. The seam again: install reads the per-domain template through this instead of hardcoding a
+ *  single domain's. @param {string} name @param {string} [frameworkDir] @returns {string|null} */
+export function resolveProjectTemplate(name, frameworkDir = SELF_FRAMEWORK_DIR) {
+  const domainTpl = path.join(frameworkDir, "domains", name, "templates", "CLAUDE.md");
+  if (existsSync(domainTpl)) return domainTpl;
+  const coreTpl = path.join(frameworkDir, "plugin", "templates", "CLAUDE.md");
+  return existsSync(coreTpl) ? coreTpl : null;
 }
