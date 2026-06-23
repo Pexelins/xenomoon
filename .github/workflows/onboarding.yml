@@ -1,9 +1,7 @@
 name: onboarding
 
 # Guards the clean-clone onboarding path — the one a forker actually walks but the maintainer
-# never does. Runs on every push/PR: export the framework as a forker receives it, `forge new`
-# the webapp domain into a fixture project, and assert the packs ship, the fork is Godot-free,
-# and nothing leaks into the project.
+# never does (their project is already bound via .xenomoon.json). Runs on every push/PR.
 on:
   push:
   pull_request:
@@ -21,5 +19,5 @@ jobs:
       # Enforce the by-domain folder layout (no loose modules at the top of ui/server|client).
       - run: npm run check:structure
       # Export the repo as a forker receives it (git archive of tracked files), install the webapp
-      # domain into a fixture project, and assert wiring + purity + the Godot-free guarantee.
+      # domain into a fixture project, and assert it binds + stays pure + doctor reports healthy.
       - run: npm run test:onboarding
