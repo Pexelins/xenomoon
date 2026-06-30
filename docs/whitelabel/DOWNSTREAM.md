@@ -2,7 +2,8 @@
 
 `SYNC.md` covers the **up** direction (pulling the godot _source_ into the framework).
 This covers the **down** direction: pulling the **framework** into the repos that consume it.
-The framework moves all the time; consumers ride it with `scripts/sync-framework.sh`.
+The framework moves all the time; consumers ride it with the `/sync-framework` command
+(deterministic mechanics, human-gated analysis of the merge — not a blind script).
 
 ## The three tiers (each link is one-way, fetch-only)
 
@@ -13,7 +14,7 @@ arthur0n/xenodot-forge        the GODOT product — engine, .tscn/.gd, alien-gre
         ▼
 arthur0n/xenomoon  (= this repo's `main`)   the agnostic FRAMEWORK — bronze "lunar" identity,
         │                                    domain-agnostic spine, CORE plugin/ + domain packs
-        │  fetch only  (scripts/sync-framework.sh)
+        │  fetch only  (the /sync-framework command)
         ▼
 xm-probius, <other projects' spines>   the CONSUMERS — framework + ONE active domain, pointed
                                         at a real project; project facts stay in the project
@@ -43,16 +44,24 @@ Because it is a _consumer_, two rules hold:
    in the framework. (`.claude/CLAUDE.md`: "Never put project-specific files in the framework.")
 2. **Local framework fixes flow back UP, not sideways.** If the test surfaces a real spine bug (e.g.
    `saveSkillSetup` needing `mkdir -p` before write), fix it, then file it into the framework so the
-   next `sync-framework.sh` is conflict-free. Don't let consumer-local patches accumulate.
+   next `/sync-framework` is conflict-free. Don't let consumer-local patches accumulate.
 
 ## Routine downstream sync
 
+In the consumer repo (e.g. xm-probius, where `upstream` = arthur0n/xenomoon = the framework),
+run the slash command and let it walk the steps with you:
+
+```
+/sync-framework --project lexflow
+```
+
+It fetches the framework, shows you the incoming commits, merges on a throwaway
+`sync-framework-main` branch, resolves each conflict by judgment (spine/identity/pack → theirs),
+runs the deterministic gate (`scripts/check-spine-agnostic.sh`, also `npm run check:agnostic`) +
+`npm run validate`, and stops. It never pushes and never touches the trunk — you review the sync
+branch and merge it yourself:
+
 ```bash
-# In the consumer repo (e.g. xm-probius). `upstream` there = arthur0n/xenomoon = the framework.
-bash scripts/sync-framework.sh --project lexflow      # fetch framework, merge on a sync branch,
-                                                      # take theirs on spine/identity/pack conflicts,
-                                                      # gate on game/godot + project-hardcoding leakage,
-                                                      # run validate. Nothing is pushed.
 git switch main && git merge --ff-only sync-framework-main
 ```
 
