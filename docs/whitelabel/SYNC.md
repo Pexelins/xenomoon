@@ -1,5 +1,9 @@
 # Upstream sync — pull framework changes in, never push back
 
+> This is the **up** direction (godot source → framework). For the **down** direction
+> (framework → the tests/projects that consume it, e.g. xm-probius) see
+> [`DOWNSTREAM.md`](DOWNSTREAM.md) + `scripts/sync-framework.sh`.
+
 This repo is a **fork** of the framework **`arthur0n/xenodot-forge`**. The relationship is
 **one-way**: we **only ever fetch** from the source to pull its (curated) improvements into our own
 product, **xenomoon**. We **never push to any `xenodot-forge` repo** — a `pre-push` hook
