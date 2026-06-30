@@ -23,7 +23,7 @@
 
 ```json
 {
-  "name": "...", // from the project marker (e.g. package.json "name")
+  "name": "...", // from the active domain's project file (e.g. package.json "name")
   "dir": "/abs/path",
   "designDocs": [{ "path": "design/x.md", "title": "first # heading" }],
   "library": [
@@ -33,10 +33,10 @@
       "verdict": "adopted <name> | rejected — … | parked | null"
     }
   ],
-  "scenes": [], // per-domain "scene"-like inventory; empty for Node/web domains
-  "scripts": ["src/index.js"], // per-domain source inventory (extensions from the domain pack)
+  "scenes": [], // domain-specific inventory buckets; the active domain decides what each scans for
+  "scripts": ["src/index.ts"],
   "agents": [{ "name": "developer", "model": "sonnet" }], // model from agent frontmatter
-  "skills": ["verify", "..."],
+  "skills": ["...", "..."],
   // external Hermes researcher config — key-free (hasKey only); never returns the API key.
   // `model`/`models` are cosmetic labels (the effective model is chosen server-side in Hermes);
   // `apiUrl` defaults to the gateway's API server on :8642.

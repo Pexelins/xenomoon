@@ -2,17 +2,17 @@
 // committed game stays pure (both are gitignored) while the plugin remains the single
 // source of truth. Regenerated deterministically on server startup, `doctor`, `forge new`.
 //
-//   • tools/   — COPIED (recursively) from the domain plugin's tools. Some engines run their
+//   • tools/   — COPIED (recursively) from plugin/tools. A binary-backed engine runs the
 //                verify/gen helpers from inside the project, so they must be real
-//                files in the project. Read-only at runtime; new tools are added to the plugin.
-//                Recursion also brings tools/lib/ — the runtime stdlib of helpers
-//                the project preloads.
-//   • library/ — SYMLINKED to the plugin's library. Researcher agents READ sources and WRITE
+//                files in the game. Read-only at runtime; new tools are added to the plugin.
+//                Recursion also brings tools/lib/ — the runtime stdlib of class_name helpers
+//                the game preloads (NodeBuilder, MeshFlasher, …).
+//   • library/ — SYMLINKED to plugin/library. Researcher agents READ sources and WRITE
 //                verdicts/digests here; a symlink keeps the framework the single source
-//                so that knowledge persists in the plugin, not a throwaway project copy.
+//                so that knowledge persists in the plugin, not a throwaway game copy.
 //   • x-shared-assets/ — SYMLINKED to the external asset library (config.js ASSET_LIBRARY):
-//                free-library example assets the project uses but keeps OUTSIDE its tree. Unlike
-//                library/, this link is meant to be scanned & imported by the engine.
+//                free-library example assets the game uses but keeps OUTSIDE its tree. Unlike
+//                library/, this link carries no scan-ignore marker — the engine must scan it.
 import {
   existsSync,
   mkdirSync,
@@ -107,9 +107,9 @@ export function ensureLibraryLink(projectDir) {
 
 /** Ensure <projectDir>/x-shared-assets is a symlink to the external shared-asset library
  * (config.js ASSET_LIBRARY) — free-library example assets the game uses but keeps OUTSIDE its
- * tree. NOTE: unlike ensureLibraryLink (whose source the engine is told to skip),
- * this link MUST be scanned by the engine — do NOT add an engine-ignore marker anywhere up this
- * chain, or the assets silently fail to import. Creates the external dir + its models/ and textures/ subdirs
+ * tree. NOTE: unlike ensureLibraryLink (whose source carries a scan-ignore marker so the engine
+ * skips it), this link MUST be scanned by the engine — do NOT add a scan-ignore marker anywhere up
+ * this chain, or the assets silently fail to import. Creates the external dir + its models/ and textures/ subdirs
  * first (it may start empty) so the symlink resolves. Idempotent: repoints a stale link, but
  * leaves a real directory untouched (a game that vendored its own).
  * @param {string} projectDir @returns {{linked:boolean, reason:string}} */
@@ -139,9 +139,9 @@ export function ensureAssetLibraryLink(projectDir) {
  * the external shared-asset library mounted.
  * @param {string} projectDir */
 export function prepareGame(projectDir) {
-  // Agnostic default: write NOTHING into the bound project unless the domain opts in. Some domains
-  // need real files at a project path; app (and any future domain) binds purely from the framework's own
-  // .xenomoon.json, so the project stays pristine. A no-op return keeps every caller
+  // Agnostic default: write NOTHING into the bound project unless the domain opts in. A
+  // binary-backed engine needs real files in the project tree; app (and any future domain) binds
+  // purely from the framework's own .xenomoon.json, so the project stays pristine. A no-op return keeps every caller
   // (server startup, doctor, forge new, the CLI) silent and side-effect-free.
   if (!DOMAIN.materializeIntoProject) {
     return {

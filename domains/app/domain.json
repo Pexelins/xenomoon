@@ -5,8 +5,7 @@
   "populated": false,
   "engine": {
     "name": "node",
-    "projectFile": "package.json",
-    "needsBinary": false
+    "projectFile": "package.json"
   },
   "inventory": {
     "scenes": [],

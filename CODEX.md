@@ -1,9 +1,9 @@
 # Codex — optional, on-demand code review
 
-Xenomoon can use **OpenAI's Codex** as a second pair of eyes on code, for **both** the bound
-project and the framework itself. It's **off by default**, gated, and
-lives **outside** the framework spine (the domain capability plugin) — nothing ships to projects
-unless you turn it on. This mirrors the [Hermes](HERMES.md) pattern: a separate program with its **own model and
+Xenomoon can use **OpenAI's Codex** as a second pair of eyes on code, for **both** the game
+(your project's source language) and the framework itself. It's **off by default**, gated, and
+lives **outside** the framework spine (`plugin/`) — nothing ships to games unless you turn it
+on. This mirrors the [Hermes](HERMES.md) pattern: a separate program with its **own model and
 its own billing** (your Anthropic plan does **not** cover it).
 
 We don't reinvent the reviewer — we vendor OpenAI's official Claude Code plugin

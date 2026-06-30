@@ -115,8 +115,8 @@ platform_toolsets:
 you knowingly want machine access: `--toolsets=web,search,memory,skills,terminal,file`. Individual
 toolsets: `web, search, memory, skills, terminal, file, browser, vision, image_gen, todo, tts,
 cronjob, moa`. `memory` + `skills` are self-improvement (see below) and stay on your machine inside
-`~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the game or
-this framework, so they stay off.
+`~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the project
+or this framework, so they stay off.
 
 **Confirm what's actually live** (the only sure check) — `npm run hermes:check` queries the
 gateway's `GET /v1/toolsets` and prints the enabled tools, loudly flagging any machine-access ones:
@@ -145,8 +145,8 @@ purpose: the more Hermes researches for this team, the better it gets at it. You
 
 - **Hermes' brain** (`~/.hermes/skills`, `~/.hermes/MEMORY.md`) — Hermes grows this freely. It's
   _its_ procedural/episodic memory, not yours.
-- **Your project** (the game + this framework) — Hermes **never** touches it. The toolsets that
-  could (`terminal`/`file`/`code_execution`/`browser`) stay **off**, so Hermes physically cannot
+- **Your project** (the bound project + this framework) — Hermes **never** touches it. The toolsets
+  that could (`terminal`/`file`/`code_execution`/`browser`) stay **off**, so Hermes physically cannot
   edit, build, or write your files. Adopting anything Hermes _found_ into your project is a
   separate, human-gated step: a `xenomoon:*-researcher` writes the verdict + `plugin/library/` entry,
   you approve, and `promote` globalizes it. Hermes self-improving and your codebase changing are
@@ -177,7 +177,7 @@ npm run hermes -- --hermes-off   # turn it back off
 ## Step 3 — try it
 
 Start a session and give the Hive a **capability / tooling / knowledge-gap** task
-(e.g. _"research the best approach for X"_) — optionally naming a persona ("have the
+(e.g. _"research the best approach for X in our stack"_) — optionally naming a persona ("have the
 **critic** stress-test …"). When the Hive calls `mcp__ui__hermes`, **approve it in the permission
 gate**. It's **fire-and-forget**: the call returns at once and you keep working — Hermes runs in
 the background and a watcher streams progress to the feed (the **Hermes** lines, colored per

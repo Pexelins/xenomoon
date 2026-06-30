@@ -1,4 +1,4 @@
-// POC web UI server for the domain-agnostic agent workflow. Bridges a browser
+// POC web UI server for the domain-neutral agent workflow. Bridges a browser
 // (WebSocket) to a Claude Code session (Agent SDK).
 //
 // Usage: node ui/server/core/index.js /path/to/your/project
@@ -186,8 +186,8 @@ function handleHermesCheckPost(req, res) {
 
 mkdirSync(LOG_DIR, { recursive: true });
 
-// Materialize the framework's per-game files into the game (gitignored): tools copied,
-// library symlinked. The plugin is the single source; the committed game stays pure.
+// Materialize the framework's per-project files (only domains that opt in — gitignored):
+// tools copied, library symlinked. The plugin is the single source; the project stays pure.
 if (PROJECT_FOUND) {
   const { tools, lib } = prepareGame(PROJECT_DIR);
   if (tools.copied) console.log(`tools: refreshed ${tools.copied} file(s) in ${PROJECT_DIR}/tools`);
@@ -221,7 +221,7 @@ function handleSkillSetupPost(req, res) {
   });
 }
 
-/** Save skillOverrides sent by the settings panel into the game's .claude/settings.json.
+/** Save skillOverrides sent by the settings panel into the project's .claude/settings.json.
  * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
 function handleSkillsPost(req, res) {
   /** @type {Buffer[]} */
@@ -361,10 +361,10 @@ function onListening() {
         "",
         `⚠  No ${ENGINE_LABEL} project at: ${PROJECT_DIR}`,
         "   The UI will open but show no sessions or files until it points at one.",
-        "   Point it at your game (the framework only reads it — it stays in place):",
-        "     • once:      npm run setup -- /path/to/your/game",
-        "     • one-off:   npm start /path/to/your/game",
-        `   Current target is set in ${CONFIG_FILE} (or defaults to ../game).`,
+        "   Point it at your project (the framework only reads it — it stays in place):",
+        "     • once:      npm run setup -- /path/to/your/project",
+        "     • one-off:   npm start /path/to/your/project",
+        `   Current target is set in ${CONFIG_FILE} (or defaults to ../project).`,
         "",
       ].join("\n"),
     );

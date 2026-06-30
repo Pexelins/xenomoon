@@ -1,0 +1,42 @@
+{
+  "description": "Xenomoon Forge hooks — block destructive git/shell ops before they run, grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, and log sub-agent rtk-prefix usage (observe-only). (rtk enforcement itself is the user's own global hook, not shipped here — this only measures whether sub-agents follow the instruction.)",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-destructive-git.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-destructive-shell.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/rtk-usage-log.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/allow-project-edits.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/caveman-reminder.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

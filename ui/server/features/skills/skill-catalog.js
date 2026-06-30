@@ -1,7 +1,7 @@
 // Skill catalog — the ONE source of truth for the built-in Claude Code skill names and the
 // workspace-skill reader. Kept deliberately dependency-light (only node:fs/os/path): it must NOT
-// pull in core/config.js, whose import has load-time side effects (engine-bin probing that can
-// write .xenomoon.json, process.exit on a bad --allow). That side-effect chain is fine for the
+// pull in core/config.js, whose import has load-time side effects (it resolves the active domain and
+// can process.exit on a bad --allow). That side-effect chain is fine for the
 // server but wrong for the standalone `cli/skill-setup.js`, which is why the built-in list used to
 // be duplicated there. Both skills.js (server feature) and cli/skill-setup.js import it instead, so
 // the list lives in exactly one place and can't drift.
@@ -32,12 +32,15 @@ export const BUILTIN_SKILLS = [
   "write-a-skill",
 ];
 
-/** Framework-plugin skills the orchestrator / main session always sees — the always-on "floor",
- * cross-checked by gen-skill-scope.js against the active domain's plugin skills on disk. EMPTY
- * today: the spine ships no plugin skills of its own, and the current domains (webapp/app) are
- * empty learning packs that ship none. A domain — or a future shared core plugin — that ships
- * `orchestrator`-tagged skills repopulates this. @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = [];
+/** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
+ * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
+ * from loading the domain-specific skills (those are implementers' tools, scoped per-agent via each
+ * agent's frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
+ * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
+ * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
+ * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
+ * @type {string[]} */
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["caveman", "quick", "autonomous-main-goal"];
 
 /** Parse the first `name:` and `description:` values from YAML frontmatter.
  * @param {string} text @returns {{ name: string, description: string } | null} */

@@ -1,5 +1,5 @@
-// The in-process "ui" MCP server: the UI-facing SDK tools (forms, tasks, asks, promotions,
-// Hermes, autonomous, set-skill) the orchestrator and agents call. Built fresh per
+// The in-process "ui" MCP server: the UI-facing SDK tools (forms, tasks, asks,
+// promotions, Hermes, autonomous, set-skill) the orchestrator and agents call. Built fresh per
 // session because each tool closes over session-scoped senders/queues. Lives here, not inline in
 // session.js, so that file stays under its line cap and the tool list has one obvious home.
 import { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
