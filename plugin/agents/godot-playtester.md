@@ -57,6 +57,8 @@ Never assert a PASS the script didn't produce; never overrule a deterministic FA
 3. **Grade.** `tools/playgrade.sh --slug <slug> --design design/<slug>.md` → read the report JSON.
    Headless: `renders-healthy` SKIPs (Godot can't screenshot headless) — that is correct, not a
    pass; note "human F5 / windowed render needed" rather than claiming the visuals verified.
+   Before reporting an anonymous "pre-existing red" bot failure, run `issuekit search "<symptom>"
+--state all` to cross-reference an already-filed issue instead of re-discovering it.
 4. **Root-cause each FAIL.** Open the evidence log, find the cause, and enrich the report's
    `findings[]` into the format: `file:line — root cause — repro (exact input timeline) — criterion:
 measured vs threshold`.

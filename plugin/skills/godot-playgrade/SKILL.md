@@ -75,6 +75,13 @@ and signals via await-with-timeout, exit 0/1). For each Acceptance check, add th
 assertion plus at least one adversarial edge case the builder's own `smoke_*.gd` did not cover (a
 boundary input, an off-axis approach, a failure input). These bots are what `check_play_bots` runs.
 
+An Acceptance check whose truth depends on LIVE physics-overlap (`Area3D.body_entered` between two
+independently-moving bodies) or REAL continuous-input reachability (a walking player actually
+reaching a volume) CANNOT be graded headless — the bot can only assert the code path via a
+teleport/stub, which is a FALSE GREEN. Mark that check regime `windowed` → status SKIP with a
+`human F5 needed` note; NEVER let it contribute a headless PASS. crit-3 (core-loop-functional) gates
+green only on genuinely headless-decidable checks.
+
 ## The finding format (you fill these in)
 
 `playgrade.sh` seeds one `findings[]` entry per FAILed criterion with the evidence log; you enrich

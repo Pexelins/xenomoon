@@ -30,12 +30,14 @@ SLUG="build"
 DESIGN=""
 SCENE=""
 OUT=""
+BOTS_GLOB=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--slug) SLUG="${2:-build}" && shift 2 ;;
 	--design) DESIGN="${2:-}" && shift 2 ;;
 	--scene) SCENE="${2:-}" && shift 2 ;;
 	--out) OUT="${2:-}" && shift 2 ;;
+	--bots-glob) BOTS_GLOB="${2:-}" && shift 2 ;;
 	*)
 		echo "playgrade: ignoring unknown arg: $1" >&2
 		shift
@@ -45,6 +47,7 @@ done
 SCENE_RES=""
 [ -n "$SCENE" ] && SCENE_RES="res://$SCENE"
 [ -z "$OUT" ] && OUT=".xenodot/playgrade/${SLUG}.json"
+[ -n "${BOTS_GLOB:-}" ] && export XENO_BOTS_GLOB="$BOTS_GLOB"
 LOG_DIR=".xenodot/playgrade/${SLUG}-logs"
 mkdir -p "$(dirname "$OUT")" "$LOG_DIR" || {
 	echo "playgrade: FAIL — cannot create $LOG_DIR"
