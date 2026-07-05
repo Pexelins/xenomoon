@@ -14,7 +14,8 @@ applies.
 ## Additive-only areas (no conflict risk — upstream owns none of these)
 
 - `docs/whitelabel/**` — this contract, the sync runbook.
-- `scripts/rebrand.mjs`, `scripts/sync-upstream.sh` — our build/sync machinery.
+- `scripts/rebrand.mjs` — the rebrand codemod; `.claude/commands/sync-upstream.md` — the
+  analysis-driven up-sync command that drives it (replaced the old blind `scripts/sync-upstream.sh`).
 - `domains/**` — the domain packs. The shipped packs are `domains/app/` and `domains/webapp/`
   (Node / React, empty learning starters). The upstream we track is a Godot framework, but
   Xenomoon ships **no** godot domain, plugin, or engine binary.
@@ -113,9 +114,10 @@ A single case-preserving `/xenodot/gi` pass covers every form above.
 - **Untracked / gitignored files** — the codemod runs over `git ls-files` only, so local
   state (`.xenodot.json`, `logs/`, `node_modules/`, `vendor/`, a nested game dir, materialized
   `tools/`) is never read or rewritten.
-- The codemod's **own machinery** — `scripts/rebrand.mjs`, `scripts/sync-upstream.sh`, and
-  everything under the `docs/whitelabel/` folder — intentionally mentions the literal `xenodot`
-  to document the rename, so it is skipped.
+- The codemod's **own machinery** — `scripts/rebrand.mjs`, `.claude/commands/sync-upstream.md`
+  (the up-sync command, which re-runs the codemod as one of its steps), and everything under the
+  `docs/whitelabel/` folder — intentionally mentions the literal `xenodot` to document the rename,
+  so it is skipped.
 - **Binary assets** (images, fonts, models, archives) — skipped by extension and null-byte detection.
 
 ## Invariant
