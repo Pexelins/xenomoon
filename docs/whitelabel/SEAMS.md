@@ -91,6 +91,31 @@ re-drop them (the merge brings them back because lineage is preserved — that's
   KEEP `plugin/hooks/graphify-update.sh` (the opt-in graphify auto-refresh) and the `graphify` skill.
 - **UI port stays `3117`.** Upstream defaults to `8338`; re-apply `3117` in `ui/server/core/config.js`
   - `ui/smoke-test.js` on every sync. Our `start_server`/`stop_server` (`.xm-run/`) stay OURS.
+- **Godot engine tooling / `engine-bin.js` — NOT carried (added at the v0.2.x sync).** Upstream keeps
+  the engine binary probe + `.gd`/shell game tools; we purged them. Re-drop on every merge:
+  `ui/server/core/engine-bin.js` and all of `plugin/tools/` (the `.gd` capture/gen/verify scripts +
+  `playgrade.sh`/`smoke_scene_*` helpers + `CAPABILITIES.md`). The `check:agnostic` gate fails on the
+  `.gd` files, so it catches a missed re-drop. Also drop stray godot art (`assets/VoidInk_style.md`,
+  `assets/fps_poc.png`).
+- **Game feature dirs — NOT carried (added at the v0.2.x sync, upstream v0.2.0).** The res:// asset
+  library + level editor are game-only. Re-drop `ui/server/features/{assets,levels}`,
+  `ui/client/features/{assets,level-editor}`, `ui/server/mcp-tools/asset-tool.js`, and remove their
+  wiring from the took-theirs `ui/server/mcp-tools/ui-server.js` (`makeAssetTool`) +
+  `ui/client/core/main.js` (`initGetAssets`/`initDrawLevel`). Keep our OURS `ui-server.js`/`main.js`.
+- **New game agents / skills — NOT carried (v0.2.x).** Drop `plugin/agents/{bug-triage,art-director,
+  asset-advisor,addon-researcher}.md` (game roles) and `plugin/skills/level-design-principles/`. Fix
+  any kept skill/agent frontmatter that references a dropped agent (e.g. `research-presenting` audience
+  → keep only `{cli,skill,transcript}-researcher`; `agent-report`/`graphify` → drop `bug-triage`).
+- **Deferred v0.2.x subsystems — NOT YET adopted (kept the sync coherent + green).** These are real
+  agnostic-leaning wins entangled with upstream's server-core refactor; adopting them cleanly is its
+  own effort, so this sync took OURS core and dropped them. Re-evaluate each in a dedicated pass:
+  upstream's **server-core refactor** (`ui/server/core/{connection,registry,agent-settle}.js` + the new
+  session/config wiring), the **`compact-tool`**, the **`node:test` suite** (all `*.test.js` + the
+  `find … -name '*.test.js'` test script), the **contamination gate** (`gen-contamination.js` +
+  `features/promotions/contamination.js`), **`codex-review.js`**, the **`fork` command**, and the
+  **framework-audit self-improvement loop** (`.claude/commands/framework-*.md`, `.claude/framework-audits/`,
+  the `framework-nobrainer-fixer` agent + `apply-nobrainers` workflow, `gen-ledger.js`). The last is the
+  highest-value re-home candidate.
 
 ## Rebrand rename map (applied by `scripts/rebrand.mjs`, case-preserving)
 
