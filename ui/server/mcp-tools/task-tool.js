@@ -17,7 +17,7 @@ export function makeTaskTool(send) {
   return tool(
     "tasks",
     "Manage your persistent task list — the to-do board shown in the UI's right rail and " +
-      "stored at .xenomoon/tasks.json. Use it to track your own multi-step work " +
+      "stored at .xenodot/tasks.json. Use it to track your own multi-step work " +
       '(owner "agent") and to hand explicit to-dos to the user (owner "user"). It does ' +
       "NOT pause the session. Keep tasks small and discrete. Every result lists the tasks " +
       "still OPEN, so you can always see what's unfinished. Before you hand off or end " +
@@ -38,10 +38,14 @@ export function makeTaskTool(send) {
       _by: z.string().optional().describe("internal — server-set; ignore"),
     },
     async (input) => {
+      // canUseTool stamps `_by` for foreground callers; a backgrounded sub-agent is
+      // granted by the allow-subagent-ui-control hook (which bypasses canUseTool), so
+      // `_by` is absent here — attribute it to "background" (the bridge's own label).
+      const by = input._by ?? "background";
       const list =
         input.op === "complete_open"
-          ? closeOpenAgentTasks(input._by)
-          : applyOp(input, new Date().toISOString());
+          ? closeOpenAgentTasks(by)
+          : applyOp({ ...input, _by: by }, new Date().toISOString());
       send({ type: "tasks", tasks: list });
       return { content: [{ type: "text", text: summarize(list) }] };
     },

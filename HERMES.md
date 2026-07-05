@@ -3,19 +3,19 @@
 Hermes is an **optional** external agent the **Hive** can delegate deep research to. It is
 **off by default** — the framework runs fully without it. Turn it on only if you want to test
 whether its web-search + memory + skills produce better capability/tooling research than the
-built-in Xenomoon researchers.
+built-in Xenodot researchers.
 
 > **The one thing that trips everyone up:** Hermes is a **separate program with its own model
 > and its own billing**. Your Anthropic plan does **not** cover it, and there is **no hosted
-> Hermes endpoint** — you install and run it on your own machine, then point Xenomoon at it.
+> Hermes endpoint** — you install and run it on your own machine, then point Xenodot at it.
 
 ## Two keys, one URL (read this first)
 
-| Thing                               | What it is                                           | Where it comes from                                                                                                           |
-| ----------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Provider key** (billable)         | The LLM key that powers Hermes' brain                | You sign up (Nous Portal / OpenRouter / Anthropic) and paste it **inside Hermes** via `hermes setup`. Xenomoon never sees it. |
-| **`API_SERVER_KEY`** (not billable) | A password **you invent** to lock your local gateway | You make it up, put it in `~/.hermes/.env`, and paste the same value into Xenomoon's ⚙ Settings → "Server key".               |
-| **Server URL**                      | Your **local** gateway                               | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                      |
+| Thing                               | What it is                                           | Where it comes from                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Provider key** (billable)         | The LLM key that powers Hermes' brain                | You sign up (Nous Portal / OpenRouter / Anthropic) and paste it **inside Hermes** via `hermes setup`. Xenodot never sees it. |
+| **`API_SERVER_KEY`** (not billable) | A password **you invent** to lock your local gateway | You make it up, put it in `~/.hermes/.env`, and paste the same value into Xenodot's ⚙ Settings → "Server key".               |
+| **Server URL**                      | Your **local** gateway                               | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                     |
 
 ## Fastest path — one guided command
 
@@ -23,12 +23,15 @@ built-in Xenomoon researchers.
 npm run hermes:setup
 ```
 
+Or click **⚙ Settings → Hermes → Set up Hermes**, which runs this same command for you (then
+restart the session to activate; you still finish the one-time Nous Portal auth with `hermes portal`).
+
 This installs Hermes if it's missing, turns the local API server on in `~/.hermes/.env`
 (generating the `API_SERVER_KEY` for you), **sets the provider and restricts the toolset
-directly** via `hermes config set`, installs the Xenomoon "partner" persona into `~/.hermes/SOUL.md`
+directly** via `hermes config set`, installs the Xenodot "partner" persona into `~/.hermes/SOUL.md`
 (only if it's absent or the stock template — a customized SOUL is never overwritten; source:
-`ui/server/integrations/hermes/hermes-soul.md`), strips any stale `mcp_servers.xenomoon` callback
-left by older Xenomoon versions, echoes what Hermes persisted, and wires Xenomoon's config.
+`ui/server/integrations/hermes/hermes-soul.md`), strips any stale `mcp_servers.xenodot` callback
+left by older Xenodot versions, echoes what Hermes persisted, and wires Xenodot's config.
 It **never launches an interactive Hermes command** (`hermes setup`/`model`/`tools`) — those
 pickers are exactly what trap you. Flags:
 
@@ -40,7 +43,7 @@ npm run hermes:setup -- --no-portal                        # don't print the Nou
 npm run hermes:setup -- --reset                            # undo the setup (test the flow from scratch)
 ```
 
-`--reset` removes Xenomoon's `hermes` block, the `API_SERVER_*` lines from `~/.hermes/.env`,
+`--reset` removes Xenodot's `hermes` block, the `API_SERVER_*` lines from `~/.hermes/.env`,
 and the `platform_toolsets.api_server` edit in `config.yaml`. It leaves Hermes itself, your
 model/provider and Portal auth untouched — so you can re-run setup on a clean slate.
 
@@ -69,7 +72,7 @@ hermes portal open           # one-time Portal sign-in (NOT `hermes setup` — t
 
 # Turn the local API server on — add to ~/.hermes/.env :
 #   API_SERVER_ENABLED=true
-#   API_SERVER_KEY=pick-any-secret      # you invent this; it's the "Server key" in Xenomoon
+#   API_SERVER_KEY=pick-any-secret      # you invent this; it's the "Server key" in Xenodot
 #   (API_SERVER_PORT defaults to 8642)
 
 # Run it — serves http://localhost:8642
@@ -103,7 +106,7 @@ nothing showed before sign-in). Other providers just need their key (`hermes aut
 and per the gateway's `/v1/capabilities`, **its tools execute on _your machine_** (`tool_execution:
 server`, no sandbox). It does **not** read `platform_toolsets.cli` or the top-level `toolsets:` —
 it reads **`platform_toolsets.api_server`**, and with no entry there it defaults to **everything on**
-(terminal, file, code_execution, browser …). So this is the key that matters for the Xenomoon bridge:
+(terminal, file, code_execution, browser …). So this is the key that matters for the Xenodot bridge:
 
 ```yaml
 platform_toolsets:
@@ -115,8 +118,8 @@ platform_toolsets:
 you knowingly want machine access: `--toolsets=web,search,memory,skills,terminal,file`. Individual
 toolsets: `web, search, memory, skills, terminal, file, browser, vision, image_gen, todo, tts,
 cronjob, moa`. `memory` + `skills` are self-improvement (see below) and stay on your machine inside
-`~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the project
-or this framework, so they stay off.
+`~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the game or
+this framework, so they stay off.
 
 **Confirm what's actually live** (the only sure check) — `npm run hermes:check` queries the
 gateway's `GET /v1/toolsets` and prints the enabled tools, loudly flagging any machine-access ones:
@@ -145,10 +148,10 @@ purpose: the more Hermes researches for this team, the better it gets at it. You
 
 - **Hermes' brain** (`~/.hermes/skills`, `~/.hermes/MEMORY.md`) — Hermes grows this freely. It's
   _its_ procedural/episodic memory, not yours.
-- **Your project** (the bound project + this framework) — Hermes **never** touches it. The toolsets
-  that could (`terminal`/`file`/`code_execution`/`browser`) stay **off**, so Hermes physically cannot
+- **Your project** (the game + this framework) — Hermes **never** touches it. The toolsets that
+  could (`terminal`/`file`/`code_execution`/`browser`) stay **off**, so Hermes physically cannot
   edit, build, or write your files. Adopting anything Hermes _found_ into your project is a
-  separate, human-gated step: a `xenomoon:*-researcher` writes the verdict + `plugin/library/` entry,
+  separate, human-gated step: a `xenodot:*-researcher` writes the verdict + `plugin/library/` entry,
   you approve, and `promote` globalizes it. Hermes self-improving and your codebase changing are
   **different things**, and only the second one is gated by you.
 
@@ -156,7 +159,7 @@ The trade-off we accept: Hermes' brain and our `plugin/library` drift apart over
 brains"). That's fine here — Hermes investigates, humans adopt; nothing Hermes "learns" reaches your
 project except through the researcher → library → promote gate.
 
-## Step 2 — point Xenomoon at it
+## Step 2 — point Xenodot at it
 
 **From the UI (recommended):** `npm start` → ⚙ **Settings** →
 
@@ -177,13 +180,13 @@ npm run hermes -- --hermes-off   # turn it back off
 ## Step 3 — try it
 
 Start a session and give the Hive a **capability / tooling / knowledge-gap** task
-(e.g. _"research the best approach for X in our stack"_) — optionally naming a persona ("have the
+(e.g. _"research the best Godot 4 approach for X"_) — optionally naming a persona ("have the
 **critic** stress-test …"). When the Hive calls `mcp__ui__hermes`, **approve it in the permission
 gate**. It's **fire-and-forget**: the call returns at once and you keep working — Hermes runs in
 the background and a watcher streams progress to the feed (the **Hermes** lines, colored per
 persona). There is **no callback**: when the run finishes, the watcher **reads** the result from the
 runs API (`GET /v1/runs/{id}`) and delivers it as a new message. The Hive then hands those findings
-to the matching `xenomoon:*-researcher` → your adopt/reject verdict. If Hermes is off, unreachable,
+to the matching `xenodot:*-researcher` → your adopt/reject verdict. If Hermes is off, unreachable,
 or the run fails/times out, the Hive just dispatches the researcher itself — same result, no Hermes.
 
 ## Can I install Hermes from the UI?
@@ -203,7 +206,7 @@ non-interactively. The UI gives you the copy-paste runbook (⚙ Settings → "Fi
 
 - **"No response within 8s — is `hermes gateway` running?"** → the gateway isn't up, or the URL/port
   is wrong. Confirm `hermes gateway` is running and the port matches `API_SERVER_PORT`.
-- **"server key was rejected"** → the Xenomoon "Server key" ≠ the `API_SERVER_KEY` in `~/.hermes/.env`.
+- **"server key was rejected"** → the Xenodot "Server key" ≠ the `API_SERVER_KEY` in `~/.hermes/.env`.
 - **Hive says "Hermes is off or not configured"** → enable it in ⚙ Settings (or `npm run hermes -- --hermes`).
 - **It works but research isn't better** → that's the real question this POC answers. Compare on a
   real gap task against the native researcher before widening the seam.

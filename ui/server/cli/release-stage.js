@@ -20,7 +20,7 @@ const lastTag = latestTag();
 const tag = nextTag(lastTag, type);
 const pkgVersion = tagToPkgVersion(tag);
 
-// The plugin (xenomoon-forge/plugin/) is the framework's OWN source of truth now — its
+// The plugin (xenodot-forge/plugin/) is the framework's OWN source of truth now — its
 // agents/skills/tools are framework features and changes to them ARE framework changes
 // (no longer vendored from a game repo), so they need no special release-note handling.
 
@@ -31,8 +31,20 @@ pkg.version = pkgVersion;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 execFileSync("git", ["add", pkgPath], { stdio: "ignore" });
 
+// The plugin manifest and marketplace carry the same version — one release train.
+for (const rel of ["plugin/.claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
+  const manifestPath = path.join(repoRoot, rel);
+  const manifest = /** @type {{ version?: string, plugins?: { version?: string }[] }} */ (
+    parseJSON(readFileSync(manifestPath, "utf8"))
+  );
+  if (typeof manifest.version === "string") manifest.version = pkgVersion;
+  for (const p of manifest.plugins ?? []) p.version = pkgVersion;
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+  execFileSync("git", ["add", manifestPath], { stdio: "ignore" });
+}
+
 const gitDir = execFileSync("git", ["rev-parse", "--git-dir"], { encoding: "utf8" }).trim();
-writeFileSync(path.join(gitDir, "XENOMOON_RELEASE"), tag + "\n");
+writeFileSync(path.join(gitDir, "XENODOT_RELEASE"), tag + "\n");
 
 console.log(
   `release: ${type} → ${tag} (package.json ${pkgVersion}); tag created after this commit.`,

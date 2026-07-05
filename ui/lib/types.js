@@ -13,11 +13,13 @@
 /** Browser-safe Codex config (no secrets — auth lives in the local `codex` CLI). `vendored` =
  * the optional plugin has been cloned on disk. @typedef {{ enabled: boolean, vendored: boolean }} CodexPublicConfig */
 /** Verdict from probing the local Codex install (`POST /api/codex/check`). @typedef {{ ok: boolean, enabled: boolean, cli: boolean, version?: string, authOk: boolean, authMode?: string, authMethod?: "chatgpt" | "apiKey", model?: string, vendored: boolean, caveat?: string, error?: string }} CodexCheck */
+/** Browser-safe Godot-docs MCP config (no secrets — it queries the public docs site).
+ * @typedef {{ enabled: boolean }} DocsPublicConfig */
 /**
  * @typedef {object} ProjectState
  * @property {string} name
  * @property {string} dir
- * @property {boolean} found - whether dir holds a recognized project (has the domain's project marker)
+ * @property {boolean} found - whether dir holds a Godot project (has project.godot)
  * @property {DesignDoc[]} designDocs
  * @property {LibraryEntry[]} library
  * @property {string[]} scenes
@@ -26,6 +28,7 @@
  * @property {string[]} skills
  * @property {HermesPublicConfig} hermes - external Hermes researcher config (key-free)
  * @property {CodexPublicConfig} codex - optional Codex reviewer config (secret-free)
+ * @property {DocsPublicConfig} docs - optional Godot-docs MCP config (secret-free)
  */
 
 /** @typedef {{ id: string, title: string, when: string }} RecentSession */
@@ -40,7 +43,7 @@
  * @property {string} [title]
  * @property {string} [description]
  * @property {string} [subagent_type]
- * @property {boolean} [run_in_background] - hive backgrounds this Xenomoon (Task/Agent input)
+ * @property {boolean} [run_in_background] - hive backgrounds this Xenodot (Task/Agent input)
  * @property {Todo[]} [todos]
  * @property {Question[]} [questions]
  */
@@ -84,7 +87,7 @@
 
 // ---------- Tasks (persistent orchestrator to-do board) ----------
 /**
- * A task in the right-rail board, persisted to <project>/.xenomoon/tasks.json.
+ * A task in the right-rail board, persisted to <project>/.xenodot/tasks.json.
  * @typedef {object} Task
  * @property {string} id - short slug, e.g. "t3"
  * @property {string} title
@@ -100,7 +103,7 @@
 
 // ---------- Promotions (game-local → framework plugin) ----------
 /**
- * A promotion request, persisted to <project>/.xenomoon/promotions.json — the
+ * A promotion request, persisted to <project>/.xenodot/promotions.json — the
  * deterministic record of a capability asked to be promoted into the plugin.
  * @typedef {object} Promotion
  * @property {string} id - short slug, e.g. "p3"
@@ -114,7 +117,7 @@
 
 // ---------- Autonomous Mode ----------
 /** A standing "Main Goal" the hive self-drives toward, with a recurring check loop.
- * Persisted in .xenomoon/autonomous.json; mirrored to the client store for the header flag.
+ * Persisted in .xenodot/autonomous.json; mirrored to the client store for the header flag.
  * @typedef {object} Autonomous
  * @property {boolean} active        - the ON/OFF flag the header badge reflects
  * @property {string} goal           - the Main Goal text
@@ -149,6 +152,7 @@
  *   | { type: "context", percentage: number, totalTokens: number, maxTokens: number }
  *   | { type: "hermes", phase: "start" | "progress" | "done", runId?: string, text: string, persona?: string }
  *   | { type: "autonomousMode", payload: Autonomous }
+ *   | { type: "session", id: string | null }
  *   | { type: "idle" }
  * )} ServerMsg */
 

@@ -7,7 +7,7 @@ import { fetchJSON } from "../../../lib/json.js";
 import { view } from "../../core/state.js";
 import { paint, agentLabel, agentInitial } from "../agents/agents.js";
 
-const TAB_KEY = "xenomoon-side-tab";
+const TAB_KEY = "xenodot-side-tab";
 
 /** Every selectable tab in the "More" section (Tasks now lives in its own
  * rail section, not here). A stale/removed value coerces to the default. */
@@ -69,7 +69,7 @@ function newItemBtn(tab, label) {
   return btn;
 }
 
-/** The Agents pane: the project's cast, each Xenomoon shown by its identity sigil
+/** The Agents pane: the project's cast, each Xenodot shown by its identity sigil
  * and branded name (so the roster reads like the running strip and activity log
  * — one agent, one color, everywhere). The literal id the SDK routes on (and the
  * model) trail as the dim caption. @param {HTMLElement} tree @param {import("../../../lib/types.js").ProjectState} s */
@@ -263,7 +263,7 @@ export async function loadState() {
   renderTab();
 }
 
-/** When the target folder has no bound project, explain how to point the
+/** When the target folder has no Godot project, explain how to point the
  * framework at one instead of showing silently-empty panels. The framework
  * only reads the project — it stays in your own repo, wherever it lives.
  * @param {import("../../../lib/types.js").ProjectState} s */
@@ -274,7 +274,7 @@ function renderBanner(s) {
     return;
   }
   banner.replaceChildren();
-  banner.append(el("strong", undefined, "No project bound here yet."));
+  banner.append(el("strong", undefined, "No Godot project here yet."));
   banner.append(el("div", "banner-path", `Looking in: ${s.dir.replace(/^\/Users\/[^/]+/, "~")}`));
   banner.append(
     el(
