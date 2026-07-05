@@ -2,11 +2,11 @@
 
 A capability (`skill`, `agent`, `tool`) starts **game-local** and is usable immediately:
 `<game>/.claude/skills/…`, `<game>/.claude/agents/…`, or `<game>/tools/…`. When it proves broadly
-useful — _not_ specific to one game — it can be **promoted** into the `xenodot` plugin, which is the
+useful — _not_ specific to one game — it can be **promoted** into the `xenomoon` plugin, which is the
 single source of truth loaded into every game session.
 
 Flow: an agent files `mcp__ui__promote { kind, name, reason }` → it lands on the promotions board
-(`.xenodot/promotions.json`) → the human approves → the human runs `npm run promote -- --pending`
+(`.xenomoon/promotions.json`) → the human approves → the human runs `npm run promote -- --pending`
 (or `npm run promote -- <kind> <name>`). The file move is `promoteOne` in
 `ui/server/features/promotions/promote-run.js`. Agents never move files themselves.
 

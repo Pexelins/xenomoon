@@ -5,7 +5,7 @@
 #
 #   1. npm ci            — reinstall deps (node_modules is never copied; the lockfile is)
 #   2. npm run new       — scaffold the game from starter/ → setup → materialize → doctor
-#   3. ./start_server    — launch the UI server, detached (PID/log under .xenodot-run/)
+#   3. ./start_server    — launch the UI server, detached (PID/log under .xenomoon-run/)
 #   4. graphify (bg)     — build the framework's knowledge graph; SLOW + costs tokens, so it
 #                          runs detached and you don't wait on it
 #
@@ -28,13 +28,13 @@ echo "==> 3/4  ./start_server $GAME  (detached)"
 ./start_server "$GAME"
 
 echo "==> 4/4  graphify  (framework knowledge graph — backgrounded, slow + costs tokens)"
-mkdir -p .xenodot-run
+mkdir -p .xenomoon-run
 if command -v graphify >/dev/null 2>&1; then
-  nohup graphify . >.xenodot-run/graphify.log 2>&1 &
+  nohup graphify . >.xenomoon-run/graphify.log 2>&1 &
   gpid=$!
   disown "$gpid" 2>/dev/null || true
   echo "    graphify building in background — PID $gpid"
-  echo "    log: .xenodot-run/graphify.log   (tail -f to watch)"
+  echo "    log: .xenomoon-run/graphify.log   (tail -f to watch)"
 else
   echo "    graphify not on PATH — skipped. Install: uv tool install graphifyy, then: graphify ."
 fi

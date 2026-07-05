@@ -1,5 +1,5 @@
 // Keep the README's "Skills" / "Agents" badges AND FEATURES.md's catalog in sync with
-// what the framework actually ships — the xenodot plugin (the single source of truth).
+// what the framework actually ships — the xenomoon plugin (the single source of truth).
 // Counts skill folders and agent files in plugin/, rewrites the badges in README.md and
 // the "## Agents (N)" / "## Skills (N)" headings in FEATURES.md, cross-checks every
 // backticked name in the FEATURES.md Agents section against plugin/agents/ (both
@@ -86,7 +86,7 @@ const listed = new Set(
   [...agentsSection(featuresAfter).matchAll(/`([a-z0-9-]+)`/g)].map((m) => String(m[1])),
 );
 const ghosts = [...listed].filter(
-  (name) => !agentFiles.includes(name) && !name.startsWith("xenodot"),
+  (name) => !agentFiles.includes(name) && !name.startsWith("xenomoon"),
 );
 const missing = agentFiles.filter((name) => !listed.has(name));
 if (ghosts.length > 0 || missing.length > 0) {

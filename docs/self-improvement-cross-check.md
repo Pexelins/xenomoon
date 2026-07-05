@@ -1,9 +1,9 @@
-# Self-improvement cross-check — the 5 pillars vs Xenodot Forge
+# Self-improvement cross-check — the 5 pillars vs Xenomoon Forge
 
 Maps the **5-pillar self-improving-system framework** (`../5-pillars-self-improvement.md`, distilled
 from Karpathy / Anthropic / a community walkthrough) against what this forge already does. The forge
 is, by its own description, **already a self-improvement framework** (`.claude/commands/framework-audit.md:10`:
-"Xenodot is a self-improvement framework") — so the question is never "adopt all" or "adopt none."
+"Xenomoon is a self-improvement framework") — so the question is never "adopt all" or "adopt none."
 It is: **where is forge already more mature, and where is there a real gap worth filling?**
 
 **Bottom line:** forge runs a **more mature, more conservative** version of pillars **1, 4, 5**.

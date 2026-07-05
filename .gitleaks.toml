@@ -1,4 +1,4 @@
-# Gitleaks config for xenodot-forge.
+# Gitleaks config for xenomoon-forge.
 #
 # Extends the built-in ruleset (useDefault = true) and allowlists only
 # values that are intentionally committed and safe to be public (placeholder
@@ -8,7 +8,7 @@
 # Used by the pre-commit hook (.husky/pre-commit → `gitleaks git --staged`) and
 # CI (.github/workflows/gitleaks.yml → full-history scan).
 
-title = "xenodot-forge gitleaks config"
+title = "xenomoon-forge gitleaks config"
 
 [extend]
 useDefault = true

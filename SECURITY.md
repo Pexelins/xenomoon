@@ -15,7 +15,7 @@ Please allow a reasonable window for a fix before any public disclosure.
 ## Scope
 
 - This repository — the framework spine (`ui/`, `.claude/`) and the shipped
-  **xenodot** plugin (`plugin/`).
+  **xenomoon** plugin (`plugin/`).
 - **Out of scope:** your own Godot game. The framework only _reads_ an external
   game project in place and never tracks it, so a game's secrets are the game
   repo's responsibility, not this one's.
@@ -36,8 +36,8 @@ What a change must never weaken:
 - **No secrets in the repo.** The Hive runs on your local Claude Code login (or
   `ANTHROPIC_API_KEY` in your environment); optional Hermes/Codex rails keep their
   keys in their own tool configs (`CODEX_HOME`, Hermes setup), never committed.
-  The saved game path (`.xenodot.json`), vendored plugins (`vendor/`), and run
-  records (`.xenodot-run/`) are gitignored. Any local `.env` is gitignored; the
+  The saved game path (`.xenomoon.json`), vendored plugins (`vendor/`), and run
+  records (`.xenomoon-run/`) are gitignored. Any local `.env` is gitignored; the
   only committed env files are `*.example` placeholders.
 - **The framework never writes to your game without a gate.** It reads the game
   in place; materialized per-game files (`tools/`, `library/`) are gitignored and

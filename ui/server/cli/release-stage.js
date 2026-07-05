@@ -20,7 +20,7 @@ const lastTag = latestTag();
 const tag = nextTag(lastTag, type);
 const pkgVersion = tagToPkgVersion(tag);
 
-// The plugin (xenodot-forge/plugin/) is the framework's OWN source of truth now — its
+// The plugin (xenomoon-forge/plugin/) is the framework's OWN source of truth now — its
 // agents/skills/tools are framework features and changes to them ARE framework changes
 // (no longer vendored from a game repo), so they need no special release-note handling.
 
@@ -44,7 +44,7 @@ for (const rel of ["plugin/.claude-plugin/plugin.json", ".claude-plugin/marketpl
 }
 
 const gitDir = execFileSync("git", ["rev-parse", "--git-dir"], { encoding: "utf8" }).trim();
-writeFileSync(path.join(gitDir, "XENODOT_RELEASE"), tag + "\n");
+writeFileSync(path.join(gitDir, "XENOMOON_RELEASE"), tag + "\n");
 
 console.log(
   `release: ${type} → ${tag} (package.json ${pkgVersion}); tag created after this commit.`,

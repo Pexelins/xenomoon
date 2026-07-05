@@ -38,13 +38,7 @@ export function reduce(s, msg) {
     case "ask":
     case "form":
     case "permission":
-      // De-dupe on id: a re-attaching client gets its open cards replayed (replayPending), which
-      // would otherwise double-append one already in the store on an in-page reconnect.
-      return s.approvals.some((a) => a.id === msg.id)
-        ? s
-        : { ...s, approvals: [...s.approvals, toApproval(msg)] };
-    case "session":
-      return { ...s, session: { ...s.session, id: msg.id } }; // reconnect key (see websocket.js)
+      return { ...s, approvals: [...s.approvals, toApproval(msg)] };
     case "permission_denied":
       return foldDenied(s, msg);
     case "idle":
@@ -241,10 +235,9 @@ function foldRunningSnapshot(s, agents) {
     if (a) {
       taken.add(a.toolUseId);
       next.push({ ...r, taskId: a.taskId, background: a.background });
-    } else if (!r.taskId && now - r.started < RUNNING_GRACE_MS) {
-      next.push(r); // spawned a beat ago, not yet bound — its task_started hasn't landed yet
+    } else if (now - r.started < RUNNING_GRACE_MS) {
+      next.push(r); // spawned a beat ago — its task_started hasn't landed in the snapshot yet
     }
-    // a chip WITH a taskId absent from the set was settled server-side → genuinely done, drop it
     // else: the authoritative set no longer holds it → drop the stale chip
   }
   for (const a of agents) {

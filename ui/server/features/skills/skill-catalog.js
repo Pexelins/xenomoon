@@ -1,7 +1,7 @@
 // Skill catalog — the ONE source of truth for the built-in Claude Code skill names and the
 // workspace-skill reader. Kept deliberately dependency-light (only node:fs/os/path): it must NOT
-// pull in core/config.js, whose import has load-time side effects (engine-bin probing that can
-// write .xenodot.json, process.exit on a bad --allow). That side-effect chain is fine for the
+// pull in core/config.js, whose import has load-time side effects (it resolves the active domain and
+// can process.exit on a bad --allow). That side-effect chain is fine for the
 // server but wrong for the standalone `cli/skill-setup.js`, which is why the built-in list used to
 // be duplicated there. Both skills.js (server feature) and cli/skill-setup.js import it instead, so
 // the list lives in exactly one place and can't drift.
@@ -31,17 +31,22 @@ export const BUILTIN_SKILLS = [
   "write-a-skill",
 ];
 
-/** Framework (xenodot plugin) skills the orchestrator / main session may see. Deliberately tiny:
+/** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
  * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
- * from loading `godot-*` skills (those are implementers' tools, scoped per-agent via each agent's
- * frontmatter `skills:`). `caveman` = terse thinking (on every agent too).
+ * from loading the domain-specific skills (those are implementers' tools, scoped per-agent via each
+ * agent's frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
  * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
  * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
  * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
  * `graphify` lets the orchestrator query the game's knowledge graph (graphify-out/) for codebase /
  * architecture questions before manual grep — a thin plugin wrapper over the `graphify` CLI.
  * @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["caveman", "autonomous-main-goal", "graphify"];
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = [
+  "caveman",
+  "quick",
+  "autonomous-main-goal",
+  "graphify",
+];
 
 /** Claude Code BUILT-IN skills the orchestrator must ALWAYS have, regardless of skillOverrides —
  * the user can't toggle these off, and they're never offered to sub-agents (which get only their

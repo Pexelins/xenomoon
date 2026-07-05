@@ -44,5 +44,5 @@ payload="$(cat)"
 agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
 [ -z "$agent_id" ] && exit 0
 
-jq -cn '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",permissionDecisionReason:"xenodot: sub-agent async UI-control tool (background-safe grant)"}}'
+jq -cn '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",permissionDecisionReason:"xenomoon: sub-agent async UI-control tool (background-safe grant)"}}'
 exit 0

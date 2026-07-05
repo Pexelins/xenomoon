@@ -1,7 +1,7 @@
 ---
 name: research-presenting
-agents: [addon-researcher, cli-researcher, skill-researcher, transcript-researcher]
-description: How a *-researcher presents a finding/verdict to the human — the 6-bucket framework. Use whenever an addon / cli / skill / transcript researcher is about to present an adopt/reject/keep verdict: never gate on a bare verdict — decompose into the six buckets first, put the verdict ON TOP, and (where the agent has `mcp__ui__form`) have the `select` reference them so the human decides per bucket.
+agents: [cli-researcher, skill-researcher, transcript-researcher]
+description: How a *-researcher presents a finding/verdict to the human — the 6-bucket framework. Use whenever a cli / skill / transcript researcher is about to present an adopt/reject/keep verdict: never gate on a bare verdict — decompose into the six buckets first, put the verdict ON TOP, and (where the agent has `mcp__ui__form`) have the `select` reference them so the human decides per bucket.
 ---
 
 # Presenting a research finding — the 6 buckets
