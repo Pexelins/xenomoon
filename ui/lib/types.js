@@ -163,7 +163,7 @@
  * @typedef {{ type?: string, message?: { type?: string, subtype?: string }, [key: string]: unknown }} OutMsg */
 /** Browser -> server messages.
  * @typedef {(
- *   | { type: "user_input", text: string }
+ *   | { type: "user_input", text: string, images?: Array<{ media_type: string, data: string }> }
  *   | { type: "reply", id: number, payload: Reply }
  *   | { type: "policy", value: string }
  *   | { type: "task_update", op: "update" | "remove", id: string, status?: string, answer?: string }

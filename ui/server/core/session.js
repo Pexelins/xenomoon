@@ -9,6 +9,7 @@ import { parseJSON } from "../../lib/json.js";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { uiControlAllow } from "./ui-control.js";
+import { userInputTurn, redactImages } from "./user-input.js";
 import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
@@ -67,7 +68,9 @@ function createLogger(ws) {
   const logStream = createWriteStream(logFile, { flags: "a" });
   /** @param {string} dir @param {OutMsg} obj */
   const log = (dir, obj) => {
-    logStream.write(JSON.stringify({ ts: new Date().toISOString(), dir, ...obj }) + "\n");
+    logStream.write(
+      JSON.stringify({ ts: new Date().toISOString(), dir, ...redactImages(obj) }) + "\n",
+    );
     const m = obj.message;
     const brief =
       obj.type === "event"
@@ -619,11 +622,8 @@ function handleClientMessage(raw, { log, send, inbox, pending, session }) {
     // work instead of accumulating a graveyard of done items across the session.
     const pruned = pruneDoneTasks();
     if (pruned) send({ type: "tasks", tasks: pruned });
-    inbox.push({
-      type: "user",
-      parent_tool_use_id: null,
-      message: { role: "user", content: [{ type: "text", text: msg.text }] },
-    });
+    // Pasted images ride along as base64 image blocks ahead of the text.
+    inbox.push(userInputTurn(msg));
   } else if (msg.type === "reply") {
     const entry = pending.get(msg.id);
     if (entry) {
