@@ -27,11 +27,11 @@
         {
           "id": "issue-view-incremental",
           "estSavingTok": 17000,
-          "landed": false,
-          "moved": null,
-          "deltaTok": null,
+          "landed": true,
+          "moved": true,
+          "deltaTok": 14000,
           "deltaCost": null,
-          "result": null
+          "result": "jq compact render in 3 webapp-pack agent prompts + developer-stage handoff-onward trim; replayed on covered corpus: 56k chars saved (44.5k dev-trim + 11.7k render); emits policy:issue-view-trim per trimmed fetch - future audits count it"
         }
       ],
       "processNote": "07-11 log has ZERO result/usage events - spend invisible to meter; flag to framework"

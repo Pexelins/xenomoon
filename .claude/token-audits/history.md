@@ -12,6 +12,6 @@
 
 ## Opportunities (did the fix move the metric?)
 
-| filed      | id                     | est tok | landed | moved | Δtok |  Δ$ | result |
-| ---------- | ---------------------- | ------: | :----: | :---: | ---: | --: | ------ |
-| 2026-07-18 | issue-view-incremental |   17000 |   —    |   —   |    — |   — | —      |
+| filed      | id                     | est tok | landed | moved |  Δtok |  Δ$ | result                                                                                                                                                                                                                                       |
+| ---------- | ---------------------- | ------: | :----: | :---: | ----: | --: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-18 | issue-view-incremental |   17000 |   ✓    | true  | 14000 |   — | jq compact render in 3 webapp-pack agent prompts + developer-stage handoff-onward trim; replayed on covered corpus: 56k chars saved (44.5k dev-trim + 11.7k render); emits policy:issue-view-trim per trimmed fetch - future audits count it |
