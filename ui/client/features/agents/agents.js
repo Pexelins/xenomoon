@@ -1,18 +1,19 @@
 // Per-agent color. A curated, well-separated palette assigned on first
 // appearance (stable per page load), so several agents running at once stay
 // visually distinct — the old hue-hash often put different agents on
-// near-identical hues. `main` keeps the ember accent.
+// near-identical hues. `main` keeps the bronze accent.
 
-/** Distinct on-theme hues, spread ~45° apart. @type {string[]} */
+/** Distinct on-theme hues that skip the green band entirely — warm bronzes
+ *  and cold steels, the two poles of the emblem. @type {string[]} */
 const PALETTE = [
-  "oklch(0.78 0.13 85)", // amber
-  "oklch(0.76 0.13 150)", // green
-  "oklch(0.78 0.1 210)", // cyan
-  "oklch(0.74 0.12 255)", // blue
+  "oklch(0.79 0.12 60)", // amber-orange
+  "oklch(0.81 0.12 90)", // moon gold
+  "oklch(0.76 0.085 195)", // teal steel
+  "oklch(0.78 0.1 225)", // sky steel
+  "oklch(0.74 0.12 262)", // blue
   "oklch(0.74 0.13 300)", // violet
-  "oklch(0.74 0.15 345)", // magenta
-  "oklch(0.71 0.16 25)", // red
-  "oklch(0.8 0.15 125)", // lime
+  "oklch(0.74 0.15 340)", // magenta
+  "oklch(0.71 0.16 25)", // iron red
 ];
 
 /** name -> assigned color, in first-seen order. @type {Map<string, string>} */
@@ -23,17 +24,16 @@ let nextIdx = 0;
 // hue everywhere it appears — chat avatar, activity log, running strip, and the
 // task board's owner stamp — so you can track one agent across panels by color
 // alone. Hues are pulled from PALETTE above so the cast stays on-theme; only
-// the casting is opinionated (the Developer works the hot iron, so amber; the
-// Refactor inspects, so cold steel-cyan; …). `main` keeps the lime accent below.
+// the casting is opinionated (the Developer works the hot iron, so amber;
+// Triage diagnoses, so iron red; …). `main` keeps the bronze accent below.
 // Agents outside this map still draw from the rotating PALETTE.
 /** @type {Record<string, string>} */
 const ROLE_COLOR = {
-  "game-designer": "oklch(0.74 0.13 300)", // violet — concept work
-  "level-designer": "oklch(0.74 0.12 255)", // blue — space & blockout
-  developer: "oklch(0.78 0.13 85)", // amber — hot iron at the forge
-  refactor: "oklch(0.78 0.1 210)", // cyan — inspection steel
-  "addon-researcher": "oklch(0.76 0.13 150)", // verdigris — the library
-  "transcript-researcher": "oklch(0.74 0.15 345)", // magenta — raw signal
+  "senior-dev": "oklch(0.74 0.13 300)", // violet — solution design
+  developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
+  "bug-triage": "oklch(0.71 0.16 25)", // iron red — triage & diagnosis
+  "skill-researcher": "oklch(0.81 0.12 90)", // moon gold — the library
+  "transcript-researcher": "oklch(0.74 0.15 340)", // magenta — raw signal
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
 };
 
@@ -54,12 +54,13 @@ function stripNs(name) {
 /** @type {Record<string, string>} */
 const DISPLAY = {
   main: "Xenomoon Hive",
-  "game-designer": "Xenomoon Designer",
-  "level-designer": "Xenomoon Level Designer",
+  "bug-triage": "Xenomoon Triage",
+  "senior-dev": "Xenomoon Senior",
   developer: "Xenomoon Developer",
-  refactor: "Xenomoon Refactor",
-  "addon-researcher": "Xenomoon Researcher",
+  "skill-researcher": "Xenomoon Researcher",
+  "cli-researcher": "Xenomoon CLI Researcher",
   "transcript-researcher": "Xenomoon Transcript",
+  "handoff-summarizer": "Xenomoon Handoff",
   hermes: "Hermes: Researcher",
   "codex-rescue": "Codex: Reviewer",
 };
@@ -70,8 +71,8 @@ export function agentLabel(name) {
   if (DISPLAY[name]) return DISPLAY[name];
   const bare = stripNs(name);
   if (DISPLAY[bare]) return DISPLAY[bare];
-  // Fallback for any agent not in the map: brand first, domain prefix dropped.
-  const role = bare.replace(/^(game|addon|level|transcript)-/, "").replace(/-/g, " ");
+  // Fallback for any agent not in the map: brand first, dashes to spaces.
+  const role = bare.replace(/-/g, " ");
   const titled = role.replace(/\b\w/g, (c) => c.toUpperCase());
   return `Xenomoon ${titled}`;
 }

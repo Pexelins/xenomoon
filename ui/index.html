@@ -28,7 +28,7 @@
           «
         </button>
         <div class="brand">
-          <img class="brand-mark" src="assets/mark.webp" alt="" width="44" height="26" />
+          <img class="brand-mark" src="assets/mark.webp" alt="" width="26" height="26" />
           <span class="brand-word">Xenomoon<b>Forge</b></span>
         </div>
         <div class="project-chip">
@@ -61,9 +61,18 @@
           </span>
           <button
             class="icon-btn"
+            id="skills-btn"
+            type="button"
+            title="Skills — which skills the session and agents load"
+            aria-label="Open skills"
+          >
+            🧩
+          </button>
+          <button
+            class="icon-btn"
             id="settings-btn"
             type="button"
-            title="Settings — external Hermes researcher"
+            title="Settings — Hermes researcher, Codex reviewer"
             aria-label="Open settings"
           >
             ⚙
@@ -196,21 +205,18 @@
               <div class="quick-actions">
                 <button
                   class="chip"
-                  data-fill="I want to design a new feature — help me write a design doc"
+                  data-fill="I hit a bug: <describe it> — turn it into a clean, triage-ready issue"
                 >
-                  new design doc
+                  report a bug
+                </button>
+                <button class="chip" data-fill="/triage the next untriaged issue">
+                  triage issue
                 </button>
                 <button
                   class="chip"
-                  data-fill="implement the design doc at design/ — one small slice, then verify"
+                  data-fill="run the project's build and checks, then report the results"
                 >
-                  start dev
-                </button>
-                <button
-                  class="chip"
-                  data-fill="run the project's build, lint and tests and report the results"
-                >
-                  verify
+                  build &amp; verify
                 </button>
                 <button class="chip" data-fill="what is the current state of the project?">
                   project state
@@ -277,14 +283,14 @@
           <code>transcripts/</code> folder and runs <strong>transcript-researcher</strong> on it.
         </p>
         <label class="form-label" for="transcript-title">Title</label>
-        <input class="form-input" id="transcript-title" placeholder="e.g. auth flow refactor" />
+        <input class="form-input" id="transcript-title" placeholder="e.g. trpc error handling" />
         <label class="form-label" for="transcript-building"
           >What are we about to build? <span class="muted">(optional)</span></label
         >
         <input
           class="form-input"
           id="transcript-building"
-          placeholder="e.g. add rate limiting to the API routes"
+          placeholder="e.g. baked lighting for the blockout levels"
         />
         <label class="form-label" for="transcript-text"
           >Raw transcript <span class="req">*</span></label
@@ -423,7 +429,18 @@ codex login             # ChatGPT account (incl. Free) or API key</pre
         </div>
 
 
-        <hr class="settings-divider" />
+        <div class="modal-error" id="settings-error"></div>
+        <div class="modal-actions">
+          <button class="btn ghost" id="settings-cancel">Cancel</button>
+          <button class="btn ghost" id="hermes-test">Test connection</button>
+          <button class="btn primary" id="settings-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="skills-modal" style="display: none">
+      <div class="modal">
+        <div class="modal-head">Skills</div>
         <p class="modal-sub">
           <strong>Skills</strong> — game sessions default to framework-only skills. Opt in
           workspace and built-in skills below; changes take effect on the next session start.
@@ -438,21 +455,24 @@ codex login             # ChatGPT account (incl. Free) or API key</pre
         </div>
         <div id="skills-workspace-section">
           <p class="form-label" style="margin-bottom: 0.25rem"><strong>Workspace</strong></p>
-          <div id="skills-workspace-list"><span class="muted" style="font-size:0.85em">Loading…</span></div>
+          <div id="skills-workspace-list">
+            <span class="muted" style="font-size: 0.85em">Loading…</span>
+          </div>
         </div>
 
         <hr class="settings-divider" />
         <p class="modal-sub">
-          <strong>Agent skills</strong> — which framework skills each agent's index carries (expand an
-          agent to toggle). Keep each under ~10; changes apply on the next session start.
+          <strong>Agent skills</strong> — which framework skills each agent's index carries (expand
+          an agent to toggle). Keep each under ~10; changes apply on the next session start.
         </p>
-        <div id="agent-skills-list"><span class="muted" style="font-size:0.85em">Loading…</span></div>
+        <div id="agent-skills-list">
+          <span class="muted" style="font-size: 0.85em">Loading…</span>
+        </div>
 
-        <div class="modal-error" id="settings-error"></div>
+        <div class="modal-error" id="skills-error"></div>
         <div class="modal-actions">
-          <button class="btn ghost" id="settings-cancel">Cancel</button>
-          <button class="btn ghost" id="hermes-test">Test connection</button>
-          <button class="btn primary" id="settings-save">Save</button>
+          <button class="btn ghost" id="skills-cancel">Cancel</button>
+          <button class="btn primary" id="skills-save">Save</button>
         </div>
       </div>
     </div>

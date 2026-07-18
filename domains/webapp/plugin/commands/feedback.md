@@ -5,17 +5,20 @@ allowed-tools: Bash, Agent
 ---
 
 Intake trigger: convert raw feedback (from a tester or from me) into a clean,
-triage-ready GitHub issue on `Coghatch-ai/lexflow`.
+triage-ready GitHub issue on this project's repo.
 
 Raw notes: `$ARGUMENTS`
 
 ## Steps
 
-1. **Set identity:** `gh auth switch --user arthur-coghatch` (stop and tell me if it fails).
+1. **Resolve the repo:** use `{{REPO}}`; if it wasn't substituted, run
+   `gh repo view --json nameWithOwner -q .nameWithOwner` and use that. Use the active
+   `gh` account (if this project needs a specific one, it's in `CLAUDE.md` — otherwise
+   don't switch). If a `gh` call 404s on the repo, stop and tell me.
 
 2. **Restructure the notes** into a clean issue. Don't invent facts — only use what's
    in the notes; leave a field out if it isn't there.
-   - **Title:** short, specific, imperative-ish (e.g. "Stats page shows blank after answering a session").
+   - **Title:** short, specific, imperative-ish (e.g. "Stats page shows blank after completing a session").
    - **Body** (markdown):
 
      ```
@@ -23,8 +26,8 @@ Raw notes: `$ARGUMENTS`
      **Expected:** …            (only if implied)
      **Steps to reproduce:**    (only if given)
      1. …
-     **Account / area:** …      (e.g. signed-in student, OAB questions, stats)
-     **Env:** …                 (prod my.probius.app / local dev — only if given)
+     **Account / area:** …      (e.g. signed-in user, which feature/screen)
+     **Env:** …                 (prod URL / local dev — only if given)
 
      > Filed via /feedback from raw notes.
      ```
@@ -34,7 +37,7 @@ Raw notes: `$ARGUMENTS`
      problem** rather than a single muddled issue.
 
 3. **Create the issue(s):**
-   `gh issue create -R Coghatch-ai/lexflow --title "<title>" --body-file /tmp/feedback-<n>.md --label "<bug|feedback>"`
+   `gh issue create -R {{REPO}} --title "<title>" --body-file /tmp/feedback-<n>.md --label "<bug|feedback>"`
    Echo each new issue's number and URL.
 
 4. **Optional chain:** if `--triage` is present in the args, immediately spawn the

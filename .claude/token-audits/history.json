@@ -1,0 +1,40 @@
+{
+  "_doc": "PERMANENT token-spend time-series (the token wiki). Append-only — never prune; this is history. Edit via `npm run token-history` (append/land), never by hand. history.md is generated. Separate domain from .claude/framework-audits (linked by reference only).",
+  "records": [
+    {
+      "date": "2026-07-18",
+      "sessions": ["2026-07-18T09-42-40-297Z", "2026-07-11T18-21-47-706Z"],
+      "covered": {
+        "input": 1311,
+        "output": 12309,
+        "cacheCreate": 14985,
+        "cacheRead": 1215597,
+        "cost": 29.6123,
+        "total": 1244202,
+        "turns": 329,
+        "hitRate": 99,
+        "costPerSession": 14.8062,
+        "costPerTurn": 0.09
+      },
+      "global": {
+        "cost": 478.2762,
+        "total": 22758979,
+        "hitRate": 96,
+        "sessionCount": 8
+      },
+      "topOffender": "gh issue view full-thread re-fetch (10-22k chars/dump; same issue 3-4x/session)",
+      "opportunities": [
+        {
+          "id": "issue-view-incremental",
+          "estSavingTok": 17000,
+          "landed": true,
+          "moved": true,
+          "deltaTok": 14000,
+          "deltaCost": null,
+          "result": "jq compact render in 3 webapp-pack agent prompts + developer-stage handoff-onward trim; replayed on covered corpus: 56k chars saved (44.5k dev-trim + 11.7k render); emits policy:issue-view-trim per trimmed fetch - future audits count it"
+        }
+      ],
+      "processNote": "07-11 log has ZERO result/usage events - spend invisible to meter; flag to framework"
+    }
+  ]
+}

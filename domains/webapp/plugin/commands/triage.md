@@ -11,13 +11,15 @@ Arguments: `$ARGUMENTS`
 
 ## Steps
 
-1. **Set identity:** `gh auth switch --user arthur-coghatch`
-   If it fails, stop and tell me the `arthur-coghatch` gh account needs `gh auth login`.
+1. **Resolve the repo:** use `{{REPO}}`; if it wasn't substituted, run
+   `gh repo view --json nameWithOwner -q .nameWithOwner`. Use the active `gh` account
+   (a project-specific account, if any, is documented in `CLAUDE.md`). If a `gh` call
+   404s on the repo, stop and tell me.
 
 2. **Parse `$ARGUMENTS`:**
    - A number (e.g. `42`) → triage that one issue.
    - Empty → **sweep**: list every open, untriaged issue with
-     `gh issue list -R Coghatch-ai/lexflow --state open --search "-label:triaged" --json number,title --limit 50`
+     `gh issue list -R {{REPO}} --state open --search "-label:triaged" --json number,title --limit 50`
    - The flag `--force` (anywhere in args) → re-triage even if already `triaged`.
 
 3. **Spawn the agent.** For each target issue, use the Agent tool with
@@ -28,7 +30,7 @@ Arguments: `$ARGUMENTS`
      batches and tell me how many remain.
    - Single issue → one agent.
 
-4. **Report.** Collect each agent's receipt and print a compact table:
+4. **Report.** Collect each agent's receipt and print a compact list, one issue per line:
    `# | severity | area | one-line root cause | url`. Note any issues skipped as
    already-triaged, and any label that failed to apply.
 

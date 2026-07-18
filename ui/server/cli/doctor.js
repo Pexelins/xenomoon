@@ -6,13 +6,11 @@
 // Usage: npm run doctor                  (the configured game, see config.js)
 //        npm run doctor -- /path/to/game
 //        node ui/server/cli/doctor.js /path/to/game
-import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { parseJSON } from "../../lib/json.js";
 import {
   PROJECT_DIR,
-  FRAMEWORK_DIR,
   FRAMEWORK_PLUGIN_DIR,
   ENGINE,
   ENGINE_LABEL,
@@ -51,6 +49,16 @@ function hasRtk() {
 }
 
 /** @returns {boolean} */
+function hasGraphify() {
+  try {
+    execFileSync("graphify", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** @returns {boolean} */
 function libraryLinked() {
   try {
     return lstatSync(path.join(PROJECT_DIR, "library")).isSymbolicLink();
@@ -73,6 +81,7 @@ prepareGame(PROJECT_DIR);
 
 const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md");
 const pluginSkills = countDirs(path.join(FRAMEWORK_PLUGIN_DIR, "skills"));
+const pluginCommands = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "commands"), ".md");
 
 /** @type {{ ok: boolean, hard: boolean, label: string }[]} */
 const checks = [
@@ -82,12 +91,12 @@ const checks = [
     label: "xenomoon plugin manifest present",
   },
   {
-    // A populated domain must ship capabilities; an empty domain starts with none and
-    // learns them per project — so this is only a HARD check when the domain is populated.
-    ok: DOMAIN.populated ? pluginAgents > 0 && pluginSkills > 0 : true,
+    // A populated domain must ship SOME capability (agents / skills / commands); an empty domain
+    // starts with none and learns them per project — so this is HARD only when populated.
+    ok: DOMAIN.populated ? pluginAgents > 0 || pluginSkills > 0 || pluginCommands > 0 : true,
     hard: DOMAIN.populated,
     label: DOMAIN.populated
-      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`
+      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills, ${pluginCommands} commands)`
       : `${DOMAIN.label} domain starts empty (0 agents, 0 skills) — learns the project`,
   },
   {
@@ -96,28 +105,25 @@ const checks = [
     label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
   },
   {
-    // a populated domain ships tools/validate.sh (the verify gate), materialized into the project; an
-    // empty domain may have no tools yet, so this is hard only when the domain is populated.
-    ok: DOMAIN.populated ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")) : true,
-    hard: DOMAIN.populated,
-    label: DOMAIN.populated
+    // Only a domain that materializes tools INTO the project (an engine that materializes its
+    // verify tools into the project) has this to check; a domain that verifies via package scripts
+    // (Node) materializes nothing, so it's N/A there. HARD only when the domain writes tools into the project.
+    ok: DOMAIN.materializeIntoProject
+      ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh"))
+      : true,
+    hard: DOMAIN.materializeIntoProject,
+    label: DOMAIN.materializeIntoProject
       ? "tools/ materialized into the project (gitignored)"
-      : "tools/ — none yet (empty domain)",
+      : `${DOMAIN.label} verifies via package scripts (no materialized tools/)`,
   },
   {
-    // Only some domains run an external engine binary; other runtimes (Node) drive their
-    // toolchain through package scripts, so there is no engine binary to resolve.
-    ok: DOMAIN.engine.needsBinary ? Boolean(ENGINE.bin) : true,
+    ok: true,
     hard: false,
-    label: !DOMAIN.engine.needsBinary
-      ? `${ENGINE_LABEL} toolchain via package scripts (no engine binary needed)`
-      : ENGINE.bin
-        ? `${ENGINE_LABEL} binary resolved (ENGINE_BIN=${ENGINE.bin})`
-        : `${ENGINE_LABEL} binary not found — set ENGINE_BIN=/path/to/${ENGINE.name} (agents will re-derive it per call)`,
+    label: `${ENGINE_LABEL} toolchain via package scripts`,
   },
   // The materialized-into-project artifacts (facts manifest, library + asset symlinks) only exist
-  // for a domain that opts into writing files into the project tree. Omit the rows entirely
-  // for a domain that materializes nothing, rather than show them perpetually "—".
+  // for a domain that opts into writing files into the project tree (a binary-backed engine). Omit
+  // the rows entirely for a domain that materializes nothing, rather than show them perpetually "—".
   ...(DOMAIN.materializeIntoProject
     ? [
         {
@@ -134,6 +140,12 @@ const checks = [
       ]
     : []),
   { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
+  {
+    ok: hasGraphify(),
+    hard: false,
+    label:
+      "graphify on PATH (optional — codebase knowledge-graph; install: uv tool install graphifyy)",
+  },
 ];
 
 console.log(`doctor: checking ${PROJECT_DIR}`);
@@ -160,25 +172,10 @@ if (hardFails > 0) {
   process.exit(1);
 }
 console.log("doctor: OK");
-// Terminal install: point `/plugin marketplace add` at the framework ROOT (where
-// .claude-plugin/marketplace.json lives — NOT the plugin subdir), and install the ACTIVE
-// domain's plugin by its REAL manifest name (e.g. webapp → "xenomoon-webapp").
-// The previous hint hardcoded "xenomoon" and pointed at the plugin's parent dir, which has no
-// marketplace.json for a non-default domain — so terminal install silently failed there.
-const pluginName = (() => {
-  try {
-    return /** @type {{ name?: string }} */ (
-      parseJSON(
-        readFileSync(path.join(FRAMEWORK_PLUGIN_DIR, ".claude-plugin", "plugin.json"), "utf8"),
-      )
-    ).name;
-  } catch {
-    return null;
-  }
-})();
 console.log(
-  "  Terminal use: install the domain plugin once —\n" +
-    `    /plugin marketplace add ${FRAMEWORK_DIR}\n` +
-    `    /plugin install ${pluginName ?? "xenomoon"}@xenomoon-forge\n` +
+  "  Terminal use: install the plugin once —\n" +
+    "    /plugin marketplace add " +
+    path.dirname(FRAMEWORK_PLUGIN_DIR) +
+    "\n    /plugin install xenomoon@xenomoon-forge\n" +
     "  (The web UI loads the plugin automatically — no install needed.)",
 );

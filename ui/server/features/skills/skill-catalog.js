@@ -1,7 +1,7 @@
 // Skill catalog — the ONE source of truth for the built-in Claude Code skill names and the
 // workspace-skill reader. Kept deliberately dependency-light (only node:fs/os/path): it must NOT
-// pull in core/config.js, whose import has load-time side effects (engine-bin probing that can
-// write .xenomoon.json, process.exit on a bad --allow). That side-effect chain is fine for the
+// pull in core/config.js, whose import has load-time side effects (it resolves the active domain and
+// can process.exit on a bad --allow). That side-effect chain is fine for the
 // server but wrong for the standalone `cli/skill-setup.js`, which is why the built-in list used to
 // be duplicated there. Both skills.js (server feature) and cli/skill-setup.js import it instead, so
 // the list lives in exactly one place and can't drift.
@@ -27,17 +27,36 @@ export const BUILTIN_SKILLS = [
   "schedule",
   "security-review",
   "simplify",
-  "update-config",
   "verify",
   "write-a-skill",
 ];
 
-/** Framework-plugin skills the orchestrator / main session always sees — the always-on "floor",
- * cross-checked by gen-skill-scope.js against the active domain's plugin skills on disk. EMPTY
- * today: the spine ships no plugin skills of its own, and the current domains (webapp/app) are
- * empty learning packs that ship none. A domain — or a future shared core plugin — that ships
- * `orchestrator`-tagged skills repopulates this. @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = [];
+/** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
+ * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
+ * from loading the domain-specific skills (those are implementers' tools, scoped per-agent via each
+ * agent's frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
+ * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
+ * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
+ * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
+ * `graphify` lets the orchestrator query the game's knowledge graph (graphify-out/) for codebase /
+ * architecture questions before manual grep — a thin plugin wrapper over the `graphify` CLI.
+ * @type {string[]} */
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = [
+  "caveman",
+  "quick",
+  "autonomous-main-goal",
+  "graphify",
+];
+
+/** Claude Code BUILT-IN skills the orchestrator must ALWAYS have, regardless of skillOverrides —
+ * the user can't toggle these off, and they're never offered to sub-agents (which get only their
+ * own frontmatter `skills:`). Kept SEPARATE from ORCHESTRATOR_FRAMEWORK_SKILLS because these are
+ * builtins, NOT plugin skills on disk, so gen-skill-scope.js must not cross-check them; they're
+ * also intentionally absent from BUILTIN_SKILLS so they never render as a toggleable candidate.
+ * resolveSessionSkills folds them into the orchestrator floor. `update-config`: the hive owns
+ * harness configuration (settings.json hooks/permissions/env), so config authoring is hive-only.
+ * @type {string[]} */
+export const REQUIRED_ORCHESTRATOR_BUILTINS = ["update-config"];
 
 /** Parse the first `name:` and `description:` values from YAML frontmatter.
  * @param {string} text @returns {{ name: string, description: string } | null} */

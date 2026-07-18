@@ -1,6 +1,6 @@
 // Skill allowlist management — reads workspace skills from ~/.claude/commands/,
 // exposes the known built-in Claude Code skill list, and reads/writes the
-// skillOverrides block in the game project's .claude/settings.json.
+// skillOverrides block in the bound project's .claude/settings.json.
 // The setup wizard writes .xenomoon/skill-setup.json; the server applies it on next start.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
@@ -9,19 +9,25 @@ import { parseJSON } from "../../../lib/json.js";
 import {
   BUILTIN_SKILLS,
   ORCHESTRATOR_FRAMEWORK_SKILLS,
+  REQUIRED_ORCHESTRATOR_BUILTINS,
   getWorkspaceSkills,
 } from "./skill-catalog.js";
 
 // Re-export the catalog so existing importers (core/index.js, the /api/skills route) keep
 // pulling the built-in list + orchestrator floor + workspace reader from this module.
-export { BUILTIN_SKILLS, ORCHESTRATOR_FRAMEWORK_SKILLS, getWorkspaceSkills };
+export {
+  BUILTIN_SKILLS,
+  ORCHESTRATOR_FRAMEWORK_SKILLS,
+  REQUIRED_ORCHESTRATOR_BUILTINS,
+  getWorkspaceSkills,
+};
 
 /** Recommended skills per setup context. Skills listed here default to "on"; all others "off".
  * @type {Record<string, string[]>} */
 export const SKILL_CONTEXTS = {
-  "new-project": ["init", "update-config", "verify"],
+  "new-project": ["init", "verify"],
   "existing-project": ["verify", "code-review", "review"],
-  "new-to-claude": ["init", "update-config", "keybindings-help", "fewer-permission-prompts"],
+  "new-to-claude": ["init", "keybindings-help", "fewer-permission-prompts"],
 };
 
 const GAME_SETTINGS = path.join(PROJECT_DIR, ".claude", "settings.json");
@@ -29,7 +35,7 @@ const GAME_SETTINGS = path.join(PROJECT_DIR, ".claude", "settings.json");
 /** Path to the skill setup record written by the UI wizard. Lives in .xenomoon/ (gitignored). */
 export const SETUP_FILE = path.join(PROJECT_DIR, ".xenomoon", "skill-setup.json");
 
-/** Whether the skill setup wizard has been completed for this game project. */
+/** Whether the skill setup wizard has been completed for this project. */
 export function hasSkillSetup() {
   return existsSync(SETUP_FILE);
 }
@@ -48,7 +54,7 @@ export function saveSkillSetup(context, overrides) {
   }
 }
 
-/** Read .xenomoon/skill-setup.json and apply its overrides to game/.claude/settings.json.
+/** Read .xenomoon/skill-setup.json and apply its overrides to the project's .claude/settings.json.
  * Called at server startup. No-op if the file doesn't exist.
  * @returns {{ applied: boolean }} */
 export function applySkillSetup() {
@@ -65,7 +71,7 @@ export function applySkillSetup() {
   }
 }
 
-/** Current skillOverrides from the game project's .claude/settings.json.
+/** Current skillOverrides from the bound project's .claude/settings.json.
  * @returns {Record<string, string>} */
 export function getSkillOverrides() {
   try {
@@ -78,7 +84,7 @@ export function getSkillOverrides() {
   }
 }
 
-/** Merge overrides into the game project's .claude/settings.json, preserving all other fields.
+/** Merge overrides into the bound project's .claude/settings.json, preserving all other fields.
  * @param {Record<string, string>} overrides @returns {{ ok: true } | { error: string }} */
 export function saveSkillOverrides(overrides) {
   /** @type {Record<string, unknown>} */
@@ -103,12 +109,14 @@ export function saveSkillOverrides(overrides) {
  * `options.skills`. The SDK hides every unlisted skill from the model's listing and rejects it
  * from the Skill tool (files stay on disk). The set =
  *   ORCHESTRATOR_FRAMEWORK_SKILLS  (framework meta floor — always on)
+ *   ∪ REQUIRED_ORCHESTRATOR_BUILTINS (required builtins, e.g. update-config — always on, not toggleable)
  *   ∪ the built-in/workspace skills the user enabled via skillOverrides.
- * DOMAIN skills are deliberately EXCLUDED — both the framework's domain skills AND the project's
- * own `.claude/skills`. The orchestrator only ROUTES; domain
- * skills belong to the implementer agents, not the hive. (Blanket-including project-local skills here
- * polluted the hive's index — a bare skill name could even pull in the framework copy under the
- * `xenomoon:` namespace.) This is also what finally makes `skillOverrides` do something.
+ * DOMAIN skills are deliberately EXCLUDED — both the framework's domain-specific skills AND the
+ * project's own `.claude/skills` (e.g. a project-local `audit-flow` or `seo-pass`). The orchestrator
+ * only ROUTES; domain skills belong to the implementer agents, not the hive. (Blanket-including
+ * project-local skills here polluted the hive's index — a project's `report-builder` bare name even
+ * pulled in a framework copy as `xenomoon:report-builder`.) This is also what finally makes
+ * `skillOverrides` do something.
  *
  * Override semantics (skillOverrides: Record<name, "on"|"off">), applied to built-ins/workspace only:
  *   per-name "on"/"off" wins; else the "*" wildcard; else DEFAULT-DENY. An unconfigured project
@@ -117,7 +125,7 @@ export function saveSkillOverrides(overrides) {
  * @returns {string[]} */
 export function resolveSessionSkills() {
   return computeSessionSkills({
-    floor: ORCHESTRATOR_FRAMEWORK_SKILLS,
+    floor: [...ORCHESTRATOR_FRAMEWORK_SKILLS, ...REQUIRED_ORCHESTRATOR_BUILTINS],
     candidates: [...BUILTIN_SKILLS, ...getWorkspaceSkills().map((s) => s.name)],
     overrides: getSkillOverrides(),
   });

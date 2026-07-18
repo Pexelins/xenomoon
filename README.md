@@ -11,72 +11,66 @@
 
 ## What this is
 
-Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **designer → dev → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that same pipeline for whatever you're building — games, apps, anything.
+Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **triage → solution → implement → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that pipeline for whatever you're building.
 
-The upstream we forked from is a Godot game-dev framework — but Xenomoon itself ships **no** Godot: no godot domain, no engine plugin, no engine binary. The shipped domains are `app` and `webapp` (empty Node/web packs).
+Godot stays the exclusive upstream product we forked from — it is **not** a domain here. We pull only its (curated) domain-agnostic improvements, so the engine payload never lands.
 
 ## Quick start — install into a project
 
-Install the framework into a project and lock it to a **domain** (`--domain=<name>` — see the packs
-in [`domains/`](domains/), or run `npm run new` with no domain to list them). A Node/web domain
-installs **in place** and writes nothing into your project (it binds the path in the framework's
-gitignored `.xenomoon.json`); a domain that ships a starter scaffolds an empty target
-but still wires an existing one **in place** — never over your code.
+Install the framework into a React + Node.js web app. The `webapp` domain installs **in place** and
+writes nothing into your project (it binds the path in the framework's gitignored `.xenomoon.json`):
 
 ```bash
 rtk npm ci
-rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_PROJECT> --domain=<DOMAIN>
+rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
 rtk npm run doctor
 rtk npm start            # http://localhost:3117
 ```
 
-Or hand the whole install to an agent — paste this verbatim, replacing the two placeholders
-(`<DOMAIN>` and the target path):
+Or hand the whole install to an agent — paste this verbatim, replacing the target path:
 
 ```text
-You are installing the Xenomoon Forge framework into a project, locking it to the `<DOMAIN>` domain.
+You are installing the Xenomoon Forge framework into a React + Node.js web app, using the `webapp` domain.
 
 Context:
 - Framework repo = the xenomoon checkout you are running in (this directory).
-- Target project = <ABSOLUTE_PATH_TO_YOUR_PROJECT>  ← an existing project carrying the domain's marker file.
-- Domain = `<DOMAIN>`: one of the packs in domains/ (run `npm run new` with no domain to list them).
-  A Node/web domain installs in place and writes nothing into your project — it stays pure.
+- Target project = <ABSOLUTE_PATH_TO_YOUR_WEBAPP>  ← a React + Node.js app with a package.json.
+- Domain = `webapp`: a Node domain that installs in place, writes nothing into your project, and keeps it pure.
 
 Prefix every shell command with `rtk` (a PreToolUse hook enforces it). Do exactly this:
 1. Install framework deps:        rtk npm ci
-2. Install into the project:       rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_PROJECT> --domain=<DOMAIN>
+2. Install into the project:       rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
    (locks the domain, binds the path in .xenomoon.json, runs doctor)
-3. Confirm health:                 rtk npm run doctor   → must report OK for the <DOMAIN> domain.
+3. Confirm health:                 rtk npm run doctor   → must report OK for the webapp domain.
 4. Boot the UI:                    rtk npm start         → serves http://localhost:3117
 5. Verify: open http://localhost:3117 (expect HTTP 200) and check /api/state returns the project's
-   name with "found": true — confirm it is YOUR project's name, not a stale server's on the same port.
+   name with "found": true.
 
 Do not scaffold, copy, or edit anything inside the target project beyond the framework binding.
-Stop and report if `doctor` fails or the `<DOMAIN>` domain is not found.
+Stop and report if `doctor` fails or the `webapp` domain is not found.
 ```
 
 ## What we're trying to do
 
 - **Install per project, deterministically.** `npm run new -- <project> --domain=<name>` installs the framework into a project — new or existing, in place — and writes a committed lock so that project is bound to its domain. The lock is read literally: no agent "what are you building?", no runtime guessing. One install per project; each is independent and **learns that project**.
-- **Domain packages that start empty.** A domain (e.g. `app`) begins at zero and accumulates capabilities as it learns the project — no one-size-fits-all brain.
+- **Domain packs from empty to head-start.** A pack ranges from empty (`app`) to a working head-start (`webapp`); either way each install **learns its specific project** and accumulates capabilities — no one-size-fits-all brain.
 - **Portable packages.** We're targeting the open [agentskills.io](https://agentskills.io) `SKILL.md` / `SOUL.md` standard — the same one OpenClaw and Hermes already speak — so a package authored once can run on Claude Code today and, later, on those runtimes.
 - **Use, don't compete.** We aim to _use_ OpenClaw and Hermes (drive them as workers, or distribute packages onto them), not build a rival runtime.
 
 ## Where we are
 
-Early, but real. **Currently testing the `webapp` domain** (React + Node.js), installed in place
-against a live app — it binds and boots clean. Working today:
+Early, but real. Working today:
 
-- The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding any one engine.
+- The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding Godot.
 - **Deterministic per-project install**, including into existing **non-greenfield** projects — never scaffolding over your code. A project-owned lock makes the binding deterministic, and a conflicting override is **refused**, not silently applied.
 - **Empty packages are valid** — a domain with no pre-baked capabilities installs and runs cleanly.
-- The shipped **`app`** and **`webapp`** domains (Node / React) are empty learning packs; their onboarding gate stays green. The upstream we track is a Godot framework, but Xenomoon ships no godot domain, plugin, or engine binary.
+- The shipped packs are **`webapp`** — a populated React + Node **head-start** (an issue-driven `triage → solution → implement` pipeline whose orchestrator learns the project) — and **`app`**, an empty Node learning pack. Godot is **stripped**: it stays the exclusive upstream product, never a domain here.
 
-Not yet: real package content (`app` / `webapp` are empty starters), OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/whitelabel/VISION.md](docs/whitelabel/VISION.md) and [docs/whitelabel/SEAMS.md](docs/whitelabel/SEAMS.md).
+Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/whitelabel/VISION.md](docs/whitelabel/VISION.md) and [docs/whitelabel/SEAMS.md](docs/whitelabel/SEAMS.md).
 
 ## Tracking upstream
 
-We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to it (a `pre-push` hook enforces this). Our xenomoon trunk is `main`, published to our own repo; on each pull we merge upstream's changes in and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
+We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we take upstream's curated, domain-agnostic changes (never the engine payload) and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
 
 ## License
 

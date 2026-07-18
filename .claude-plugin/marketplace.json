@@ -2,27 +2,18 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "xenomoon-forge",
   "metadata": {
-    "description": "Xenomoon Forge — per-domain agents, skills, tools and hooks for AI-assisted development. One plugin per domain; doctor prints which to install."
+    "description": "Xenomoon Forge — a domain-neutral, self-improving agent framework you install per project and lock to a domain (React/Node web app, …)."
   },
   "owner": { "name": "Xenomoon Forge" },
   "plugins": [
     {
-      "name": "xenomoon-webapp",
-      "description": "Web app domain package (empty POC) for React + Node.js — capabilities are learned per project, none ship pre-baked.",
-      "version": "0.0.0",
+      "name": "xenomoon",
+      "description": "The CORE plugin: meta skills, safety hooks, handoff-summarizer and the researcher learning loop loaded into every project session, alongside the active domain pack.",
+      "version": "0.1.7",
       "author": { "name": "Xenomoon Forge" },
-      "source": "./domains/webapp/plugin",
+      "source": "./plugin",
       "category": "development",
-      "tags": ["webapp", "react", "node", "agents", "skills"]
-    },
-    {
-      "name": "xenomoon-app",
-      "description": "App domain package (empty POC) — capabilities are learned per project, none ship pre-baked.",
-      "version": "0.0.0",
-      "author": { "name": "Xenomoon Forge" },
-      "source": "./domains/app/plugin",
-      "category": "development",
-      "tags": ["app", "node", "agents", "skills"]
+      "tags": ["agents", "skills", "webapp", "framework"]
     }
   ]
 }

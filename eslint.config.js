@@ -1,9 +1,9 @@
-// Flat-config ESLint, adapted from the sibling sharpmoney project: plain JS
-// (type-checked via tsconfig `checkJs` + JSDoc), no React, no path aliases.
+// Flat-config ESLint: plain JS (type-checked via tsconfig `checkJs` + JSDoc),
+// no React, no path aliases.
 //
-// Two file groups, matching sharpmoney's .ts vs .tsx split:
-//   - node + lib + smoke-test  → strict size limits (like sharpmoney .ts)
-//   - client/ (the browser view) → relaxed per-function limits (like .tsx),
+// Two file groups, logic vs view:
+//   - node + lib + smoke-test  → strict size limits
+//   - client/ (the browser view) → relaxed per-function limits,
 //     since DOM-building functions are verbose the same way JSX is.
 // Both groups share the full rule set (style + type-aware strictness).
 
@@ -50,7 +50,7 @@ const sharedRules = {
   "@typescript-eslint/no-unsafe-argument": "error",
 };
 
-// sharpmoney .ts limits.
+// Logic-side limits — small files, small functions.
 const nodeLimits = {
   "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
   "max-lines-per-function": ["error", { max: 100, skipBlankLines: true, skipComments: true }],
@@ -59,7 +59,7 @@ const nodeLimits = {
   complexity: ["error", 15],
 };
 
-// sharpmoney .tsx limits — relaxed per-function size + complexity for the
+// View-side limits — relaxed per-function size + complexity for the
 // verbose DOM-building view layer.
 const viewLimits = {
   "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
@@ -72,7 +72,9 @@ const viewLimits = {
 export default [
   // vendor/ holds gitignored third-party plugins (e.g. codex-plugin-cc, cloned by
   // `npm run codex:setup`) — not our code, never linted to our rules.
-  { ignores: ["node_modules/", "logs/", "vendor/", ".claude/"] },
+  // .claude/workflows/ holds Workflow DSL scripts (module-level `export` + top-level `return`
+  // + runtime-injected globals) that no standard parser can lint; the rest of .claude/ IS linted.
+  { ignores: ["node_modules/", "logs/", "vendor/", ".claude/workflows/"] },
   js.configs.recommended,
 
   // Node side — server, shared lib, smoke test, and *.check.js scripts run with
@@ -91,6 +93,13 @@ export default [
     },
     plugins: { "@typescript-eslint": tsPlugin.plugin },
     rules: { ...sharedRules, ...nodeLimits, "no-console": "off" },
+  },
+
+  // node:test files — `test(...)` returns a promise the runner owns; awaiting or
+  // void-ing every call is pure noise, so relax the floating-promise rule here only.
+  {
+    files: ["ui/**/*.test.js"],
+    rules: { "@typescript-eslint/no-floating-promises": "off" },
   },
 
   // Browser side — the client view modules (loaded as ES modules).

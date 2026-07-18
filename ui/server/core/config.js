@@ -34,7 +34,7 @@ export const CODEX_PLUGIN_DIR = path.join(
 
 const args = process.argv.slice(2);
 
-/** @typedef {{ name?: string, projectFile?: string, bin?: string }} EngineConfig */
+/** @typedef {{ name?: string, projectFile?: string }} EngineConfig */
 /** Persisted Hermes block (see getHermesConfig). The apiKey lives only here (the
  * file is gitignored) or in env — it is never returned to the browser.
  * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string }} HermesConfig */
@@ -54,20 +54,20 @@ const SAVED = (() => {
   }
 })();
 
-/** Where the framework reads the game project from. The framework is
+/** Where the framework reads the bound project from. The framework is
  * independent of the project: it points at this folder in place and never
  * vendors or tracks it. Resolution order (first hit wins):
  *   1. a path argument:        `npm start /path/to/project`
  *   2. the GAME_DIR env var
  *   3. the saved path:         `.xenomoon.json` (set once via `npm run setup`)
- *   4. default sibling:        `../game` (next to the framework folder)
+ *   4. default sibling:        `../project` (next to the framework folder)
  */
 function resolveProjectDir() {
   const argPath = args.find((a) => !a.startsWith("--"));
   if (argPath) return path.resolve(argPath);
   if (process.env.GAME_DIR) return path.resolve(process.env.GAME_DIR);
   if (SAVED.projectDir) return path.resolve(SAVED.projectDir);
-  return path.resolve(FRAMEWORK_DIR, "..", "game");
+  return path.resolve(FRAMEWORK_DIR, "..", "project");
 }
 
 export const PROJECT_DIR = resolveProjectDir();
@@ -77,42 +77,45 @@ export const PROJECT_DIR = resolveProjectDir();
  * commands) from this descriptor instead of hardcoding them. The PROJECT's lock
  * (`.xenomoon-project.json`, written by `forge new --domain`) is authoritative; a conflicting
  * env `XENOMOON_DOMAIN` / `.xenomoon.json` override is refused (no silent override). With no
- * lock: the override selects the domain (no privileged default). */
+ * lock: override → the framework's default domain (which reproduces the framework's original behavior). */
 export const DOMAIN = resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
 
 /** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
  * Claude Code plugin — the single source of truth, loaded into every session via the SDK
  * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
- * and the plugin provides the framework regardless of cwd. The path comes from the domain pack
- * (each domain ships its own under `domains/<name>/`). */
+ * and the plugin provides the framework regardless of cwd. The path comes from the active domain
+ * pack (`domains/<name>/plugin`). It loads ALONGSIDE the CORE plugin (see CORE_PLUGIN_DIR). */
 export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
 
-/** The target runtime/engine for the active domain (e.g. `node` for web apps). The spine reads this
- * from the bound domain pack — it does NOT hardcode any engine. Resolution (first hit wins): env
- * (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json` `engine` field → the
- * active domain's defaults.
- *   - `projectFile`: on-disk marker used to detect a project (e.g. `package.json` for Node).
- *   - `bin`: optional runtime executable a verify gate may run; null for runtimes (Node) that drive
- *     their toolchain through package scripts. */
+/** The CORE capability plugin — the domain-agnostic "basic install" loaded into EVERY session
+ * regardless of domain: the meta skills (caveman, quick, agent-report, tasks-mcp,
+ * autonomous-main-goal), the safety hooks, handoff-summarizer and the researcher learning loop.
+ * The active domain's pack (FRAMEWORK_PLUGIN_DIR) layers its specifics on top. */
+export const CORE_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
+
+/** The active domain's engine/runtime descriptor. Resolution (first hit wins):
+ * env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json`
+ * `engine` field → the active domain's defaults (`domain.json` `engine`).
+ *   - `projectFile`: on-disk marker used to detect a project (e.g. `package.json`
+ *     for the Node/webapp domain). */
 export const ENGINE = {
   name: process.env.ENGINE_NAME ?? SAVED.engine?.name ?? DOMAIN.engine.name,
   projectFile:
     process.env.ENGINE_PROJECT_FILE ?? SAVED.engine?.projectFile ?? DOMAIN.engine.projectFile,
-  bin: process.env.ENGINE_BIN ?? SAVED.engine?.bin ?? null,
 };
-/** Capitalized runtime name for UI/CLI copy, e.g. "Node". */
+/** Capitalized engine display name for UI/CLI copy. */
 export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.slice(1);
 
-/** The project's mount name for the external shared-asset library — a symlink
- * materialize.js creates (`<project>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
- * at `x-shared-assets/models/<name>.glb`. One literal, shared across config /
+/** The game's res:// mount name for the external shared-asset library — a symlink
+ * materialize.js creates (`<game>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
+ * at `res://x-shared-assets/models/<name>.glb`. One literal, shared across config /
  * materialize / asset-write / doctor / the client, to avoid drift. */
 export const RES_ASSET_MOUNT = "x-shared-assets";
 
 /** The external "shared asset library": free-library example assets (models/textures) the
- * project uses but kept OUTSIDE its tree, so the project stays pure. Symlinked into the project
- * at `x-shared-assets/` — and, unlike the knowledge library, scanned/imported by the engine.
- * The framework is per-project, so this dir is effectively this project's,
+ * game uses but kept OUTSIDE its tree, so the game stays pure game. Symlinked into the game
+ * at `res://x-shared-assets/` — and, unlike the knowledge library, carries no scan-ignore marker,
+ * so the engine scans and imports it. The framework is per-game, so this dir is effectively this game's,
  * just external. Resolution (first hit wins): env `XENOMOON_ASSET_LIBRARY` → `.xenomoon.json`
  * `assetLibrary` → default sibling `../x-shared-assets`. May start empty — the framework
  * only needs to know where it is. */
@@ -129,19 +132,19 @@ export const ASSET_LIBRARY = path.resolve(
 process.env.XENOMOON_PLUGIN = FRAMEWORK_PLUGIN_DIR;
 process.env.XENOMOON_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 // The external shared-asset library (see ASSET_LIBRARY). Exported so the spawned session,
-// its agents (asset-advisor reads/verifies the sourced file here) and verify tooling can locate
-// it regardless of cwd; the project reaches the same bytes via the x-shared-assets symlink.
+// its agents (asset-advisor reads/verifies the sourced file here) and validate.sh can locate
+// it regardless of cwd; the game reaches the same bytes via the res://x-shared-assets symlink.
 process.env.XENOMOON_ASSET_LIBRARY = ASSET_LIBRARY;
 
 /** The generated per-game facts manifest (engine bin/version, render config, commands,
  * capability registry) — written by gen-manifest.js inside prepareGame(). Exported so the
  * spawned session and `tools/forge-facts` can read deterministic project facts instead of
- * re-deriving them (re-reading the project marker, re-globbing tools/) on every task. */
+ * re-deriving them (re-reading the engine's project file, re-globbing tools/) on every task. */
 export const MANIFEST_FILE = path.join(PROJECT_DIR, ".xenomoon", "manifest.json");
 process.env.XENOMOON_MANIFEST = MANIFEST_FILE;
 
-/** Whether PROJECT_DIR actually holds a project for the active domain (its
- * on-disk marker exists) — drives the startup warning and the UI's empty-state banner. */
+/** Whether PROJECT_DIR actually holds a project for the active domain —
+ * drives the startup warning and the UI's empty-state banner. */
 export const PROJECT_FOUND = existsSync(path.join(PROJECT_DIR, ENGINE.projectFile));
 export const PORT = Number(process.env.PORT ?? 3117);
 
@@ -193,13 +196,16 @@ export const AUTONOMOUS_TOOL = "mcp__ui__autonomous";
 // frontmatter lists it, so only the foreground Hive can call it.
 export const HERMES_TOOL = "mcp__ui__hermes";
 
-/** Nous Hermes model ids for the settings dropdown; the user can also enter a custom id.
+/** Hermes model ids for the settings dropdown; the user can also enter a custom id. The Nous
+ * Portal (provider `nous`) routes non-Nous ids too (e.g. `qwen/*`, `z-ai/*`), so they're valid
+ * picklist entries as long as they're in the Portal model catalog.
  * NOTE: this is a LABEL only — our `runs` call doesn't send a model, and the effective
- * model is chosen inside Hermes itself (`hermes setup` → `~/.hermes/config.yaml`). Nous
- * also recommends an agentic model over the Hermes-4 family to *drive* the agent, so treat
- * these as a record of which Hermes model you pointed Hermes at, not a control. */
+ * model is chosen inside Hermes itself (`hermes config set model.default …` → `~/.hermes/config.yaml`).
+ * Nous also recommends an agentic model to *drive* the agent, so treat these as a record of
+ * which Hermes model you pointed Hermes at, not a control. */
 export const HERMES_DEFAULT_MODEL = "nousresearch/hermes-4-70b";
 export const HERMES_MODELS = [
+  "z-ai/glm-5.2",
   "nousresearch/hermes-4-405b",
   HERMES_DEFAULT_MODEL,
   "nousresearch/hermes-4.3-36b",
@@ -330,7 +336,7 @@ export function saveCodexConfig(patch) {
 // backgrounded researchers were denied Read/Bash/WebSearch/WebFetch despite the
 // settings allowlist). Passed as SDK `allowedTools` (see session.js). Deliberately
 // NOT Write/Edit — those are granted to backgrounded sub-agents by the plugin's
-// `allow-game-edits.sh` PreToolUse hook (game/library paths, `.claude/` excluded).
+// `allow-project-edits.sh` PreToolUse hook (project/library paths, `.claude/` excluded).
 // We do NOT use a per-agent `permission-mode: acceptEdits` for this: the CLI drops
 // escalating modes that come from a repo/plugin trust tier (see
 // filterEscalatingDefaultMode), so a plugin agent's acceptEdits is a no-op — which is
@@ -349,8 +355,8 @@ export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?
 export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").EffortLevel} */ (
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );
-// The orchestrator routing prompt comes from the active domain pack (each domain ships its own
-// under domains/<name>/). Read once at startup.
+// The orchestrator routing prompt comes from the active domain pack (e.g. `webapp` → its
+// orchestrator.md); each domain ships its own under domains/<name>/. Read once at startup.
 export const ORCHESTRATOR_PROMPT = readFileSync(
   path.join(FRAMEWORK_DIR, DOMAIN.orchestrator),
   "utf8",

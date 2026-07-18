@@ -14,7 +14,8 @@ applies.
 ## Additive-only areas (no conflict risk — upstream owns none of these)
 
 - `docs/whitelabel/**` — this contract, the sync runbook.
-- `scripts/rebrand.mjs`, `scripts/sync-upstream.sh` — our build/sync machinery.
+- `scripts/rebrand.mjs` — the rebrand codemod; `.claude/commands/sync-upstream.md` — the
+  analysis-driven up-sync command that drives it (replaced the old blind `scripts/sync-upstream.sh`).
 - `domains/**` — the domain packs. The shipped packs are `domains/app/` and `domains/webapp/`
   (Node / React, empty learning starters). The upstream we track is a Godot framework, but
   Xenomoon ships **no** godot domain, plugin, or engine binary.
@@ -76,6 +77,45 @@ re-drop them (the merge brings them back because lineage is preserved — that's
     Revisit only if a domain wants its own docs-MCP — then generalize it into a per-domain seam.
 - **FEATURES.md — NOT carried.** Upstream's godot-feature catalog (un-curated for xenomoon); re-curate
   on its own terms if ever wanted.
+- **Identity (bronze "lunar") — never revert to upstream's look.** Keep the ringed-planet emblem
+  (mark/logo/favicon) + Lunar-Bronze / Moon-Gold palette in `ui/agent-ui.css` (the `--green` token is
+  Moon Gold, NOT green) + brand word "XenomoonForge". On any sync touching `ui/index.html`,
+  `ui/agent-ui.css`, or emblem/favicon assets, take upstream's behavior/structure only and resolve
+  every color/identity hunk as OURS. Keep our settings glyph `⚙` (drop upstream's `🎛️`).
+- **Godot skills / agents / library (e.g. `dba53ce`) — NOT carried.** Re-drop on every merge:
+  `plugin/skills/godot-*`, `plugin/agents/{game-designer,level-designer,godot-*}.md`, and ALL of
+  `plugin/library/` EXCEPT our two CORE files (`README.md`, `token-audits/LEDGER.md`). KEEP the
+  domain-agnostic wins separately (e.g. the Hermes learning-nudges in `ui/server/mcp-tools/hermes-tool.js`).
+- **grep-usage-log hook — NOT carried.** Overlaps our `rtk-usage-log.sh`; drop
+  `plugin/hooks/grep-usage-log.sh` + its `Bash|Grep` PreToolUse entry in `plugin/hooks/hooks.json`.
+  KEEP `plugin/hooks/graphify-update.sh` (the opt-in graphify auto-refresh) and the `graphify` skill.
+- **UI port stays `3117`.** Upstream defaults to `8338`; re-apply `3117` in `ui/server/core/config.js`
+  - `ui/smoke-test.js` on every sync. Our `start_server`/`stop_server` (`.xm-run/`) stay OURS.
+- **Godot engine tooling / `engine-bin.js` — NOT carried (added at the v0.2.x sync).** Upstream keeps
+  the engine binary probe + `.gd`/shell game tools; we purged them. Re-drop on every merge:
+  `ui/server/core/engine-bin.js` and all of `plugin/tools/` (the `.gd` capture/gen/verify scripts +
+  `playgrade.sh`/`smoke_scene_*` helpers + `CAPABILITIES.md`). The `check:agnostic` gate fails on the
+  `.gd` files, so it catches a missed re-drop. Also drop stray godot art (`assets/VoidInk_style.md`,
+  `assets/fps_poc.png`).
+- **Game feature dirs — NOT carried (added at the v0.2.x sync, upstream v0.2.0).** The res:// asset
+  library + level editor are game-only. Re-drop `ui/server/features/{assets,levels}`,
+  `ui/client/features/{assets,level-editor}`, `ui/server/mcp-tools/asset-tool.js`, and remove their
+  wiring from the took-theirs `ui/server/mcp-tools/ui-server.js` (`makeAssetTool`) +
+  `ui/client/core/main.js` (`initGetAssets`/`initDrawLevel`). Keep our OURS `ui-server.js`/`main.js`.
+- **New game agents / skills — NOT carried (v0.2.x).** Drop `plugin/agents/{bug-triage,art-director,
+  asset-advisor,addon-researcher}.md` (game roles) and `plugin/skills/level-design-principles/`. Fix
+  any kept skill/agent frontmatter that references a dropped agent (e.g. `research-presenting` audience
+  → keep only `{cli,skill,transcript}-researcher`; `agent-report`/`graphify` → drop `bug-triage`).
+- **Deferred v0.2.x subsystems — NOT YET adopted (kept the sync coherent + green).** These are real
+  agnostic-leaning wins entangled with upstream's server-core refactor; adopting them cleanly is its
+  own effort, so this sync took OURS core and dropped them. Re-evaluate each in a dedicated pass:
+  upstream's **server-core refactor** (`ui/server/core/{connection,registry,agent-settle}.js` + the new
+  session/config wiring), the **`compact-tool`**, the **`node:test` suite** (all `*.test.js` + the
+  `find … -name '*.test.js'` test script), the **contamination gate** (`gen-contamination.js` +
+  `features/promotions/contamination.js`), **`codex-review.js`**, the **`fork` command**, and the
+  **framework-audit self-improvement loop** (`.claude/commands/framework-*.md`, `.claude/framework-audits/`,
+  the `framework-nobrainer-fixer` agent + `apply-nobrainers` workflow, `gen-ledger.js`). The last is the
+  highest-value re-home candidate.
 
 ## Rebrand rename map (applied by `scripts/rebrand.mjs`, case-preserving)
 
@@ -99,9 +139,10 @@ A single case-preserving `/xenodot/gi` pass covers every form above.
 - **Untracked / gitignored files** — the codemod runs over `git ls-files` only, so local
   state (`.xenodot.json`, `logs/`, `node_modules/`, `vendor/`, a nested game dir, materialized
   `tools/`) is never read or rewritten.
-- The codemod's **own machinery** — `scripts/rebrand.mjs`, `scripts/sync-upstream.sh`, and
-  everything under the `docs/whitelabel/` folder — intentionally mentions the literal `xenodot`
-  to document the rename, so it is skipped.
+- The codemod's **own machinery** — `scripts/rebrand.mjs`, `.claude/commands/sync-upstream.md`
+  (the up-sync command, which re-runs the codemod as one of its steps), and everything under the
+  `docs/whitelabel/` folder — intentionally mentions the literal `xenodot` to document the rename,
+  so it is skipped.
 - **Binary assets** (images, fonts, models, archives) — skipped by extension and null-byte detection.
 
 ## Invariant

@@ -8,8 +8,8 @@
 // `/plugin install` (printed by doctor). The committed project stays pure.
 //
 // Usage:
+//   npm run new -- ../mysite --domain=webapp (scaffold or wire the webapp domain in place)
 //   npm run new -- ../myapp --domain=app     (install the `app` domain into an existing project)
-//   npm run new -- ../mysite --domain=webapp (install the `webapp` domain; scaffold or wire in place)
 //
 // The chosen domain is written as a project-owned lock (.xenomoon-project.json), committed with
 // the project so the binding travels and the framework can't later drive it as the wrong domain.
@@ -29,6 +29,7 @@ import {
   loadDomain,
   readProjectLock,
   writeProjectLock,
+  resolveProjectTemplate,
   PROJECT_LOCK_FILE,
   availableDomains,
 } from "../core/domain-resolver.js";
@@ -77,18 +78,16 @@ process.env.XENOMOON_DOMAIN = domainName;
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });
 
 /** Make sure the project ignores the framework's generated/working paths, so they're never
- * committed (the scaffolded starter already lists these; this covers an existing project). The
- * domain lock itself is intentionally NOT ignored — it is committed with the project. @param {string} dir */
-function ensureIgnores(dir) {
+ * committed. `.xenomoon/` (the per-project task board / autonomous / skill-setup state the framework
+ * writes for EVERY domain) is ALWAYS ignored — so temp tasks never land in the project's repo;
+ * materialize domains add their working dirs too. The domain lock itself is intentionally NOT
+ * ignored — it is committed with the project. @param {string} dir @param {boolean} materializes */
+function ensureIgnores(dir, materializes) {
   const file = path.join(dir, ".gitignore");
-  const need = [
-    "/tools/",
-    "/library",
-    "/x-shared-assets",
-    "/transcripts/",
-    ".xenomoon/",
-    ".claude/projects/",
-  ];
+  // Always ignored — every domain writes session/task/autonomous state into <project>/.xenomoon/.
+  const need = [".xenomoon/", ".claude/projects/"];
+  // Materialize domains also drop working files (tools/, library/, …) into the project tree.
+  if (materializes) need.push("/tools/", "/library", "/x-shared-assets", "/transcripts/");
   let cur = "";
   try {
     cur = readFileSync(file, "utf8");
@@ -106,8 +105,9 @@ function ensureIgnores(dir) {
 }
 
 // 0. Ensure the target exists. How the binding is remembered depends on the domain:
-//    - materialize domains write a project-owned lock, committed so it travels with the
-//      project (the child steps also resolve it via the XENOMOON_DOMAIN env set above).
+//    - materialize domains (the kind a binary-backed engine needs; a deferred seam) write a
+//      project-owned lock, committed so it travels with the project (the
+//      child steps also resolve it via the XENOMOON_DOMAIN env set above).
 //    - every other domain stays OUT of the project entirely — the binding lives in the framework's
 //      own .xenomoon.json (domain persisted in step 2b), so the project is never touched.
 mkdirSync(target, { recursive: true });
@@ -134,7 +134,35 @@ if (existsSync(marker)) {
       `starter — installing into it as-is (bring your own project).`,
   );
 }
-if (DOMAIN.materializeIntoProject) ensureIgnores(target);
+// Always — every domain writes <project>/.xenomoon/ state, so it must be gitignored even for a
+// non-materialize (install-in-place) domain like webapp.
+ensureIgnores(target, DOMAIN.materializeIntoProject);
+
+// 1b. Seed a CLAUDE.md "project facts" template the orchestrator + agents treat as authoritative —
+//     the active domain's own template if the pack ships one, else the CORE neutral baseline. Written
+//     ONLY when the project has none: an existing CLAUDE.md (yours, or one a starter shipped) is never
+//     overwritten. This is the project's OWN committed doc (project facts, in your voice), not framework
+//     working-state — so unlike .xenomoon/ it is intentionally NOT gitignored.
+const claudeMd = path.join(target, "CLAUDE.md");
+const templatePath = resolveProjectTemplate(domainName, FRAMEWORK_DIR);
+if (existsSync(claudeMd)) {
+  console.log(`new: ${target} already has a CLAUDE.md — leaving it untouched.`);
+} else if (templatePath) {
+  let projectName = path.basename(target);
+  try {
+    const pkg = /** @type {{ name?: unknown }} */ (
+      parseJSON(readFileSync(path.join(target, "package.json"), "utf8"))
+    );
+    if (typeof pkg.name === "string" && pkg.name) projectName = pkg.name;
+  } catch {
+    /* no/invalid package.json — keep the folder name */
+  }
+  const tpl = readFileSync(templatePath, "utf8").replaceAll("{{PROJECT_NAME}}", projectName);
+  writeFileSync(claudeMd, tpl);
+  console.log(
+    `new: seeded CLAUDE.md project-facts template (fill in the {{…}} placeholders) → ${claudeMd}`,
+  );
+}
 
 // 2. Remember the path (writes .xenomoon.json projectDir).
 node(path.join(here, "setup.js"), target);

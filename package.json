@@ -1,7 +1,7 @@
 {
   "name": "xenomoon-forge",
   "version": "0.1.9",
-  "description": "Xenomoon Forge — POC web UI + agent workflow (design -> implement -> verify) you install per project and lock to a domain (Node/web domains) with Claude Code",
+  "description": "Xenomoon Forge — POC web UI + agent workflow (triage -> solution -> implement -> verify) you install per project and lock to a Node/web app domain; the orchestrator self-improves per project, with Claude Code",
   "type": "module",
   "private": true,
   "scripts": {
@@ -18,10 +18,12 @@
     "start": "node ui/server/core/index.js",
     "badges": "node ui/server/cli/update-badges.js",
     "release": "node ui/server/cli/release-stage.js",
+    "token-history": "node ui/server/cli/token-history.js",
     "rebrand": "node scripts/rebrand.mjs",
     "check": "tsc --noEmit",
     "check:structure": "node ui/structure.check.js",
     "check:skills": "node ui/server/cli/gen-skill-scope.js",
+    "check:agnostic": "bash scripts/check-spine-agnostic.sh",
     "test": "node ui/reducer.check.js && node ui/server/features/skills/skills.check.js",
     "test:onboarding": "node ui/server/cli/onboarding.check.js",
     "lint": "eslint . --max-warnings 0",
