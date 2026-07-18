@@ -5,6 +5,7 @@ model: opus
 tools: Read, Glob, Grep, Write, Bash, Skill, mcp__ui__tasks, mcp__ui__ask
 skills:
   - caveman
+  - research-presenting
   - tasks-mcp
 effort: high
 ---

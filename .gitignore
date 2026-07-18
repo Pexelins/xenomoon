@@ -1,5 +1,13 @@
 node_modules/
 .DS_Store
+
+# Local secrets / env — never commit. Tracked `*.example` templates are the only
+# committed env files (gitleaks allowlists them).
+.env
+.env.*
+!.env.example
+!*.env.example
+
 logs/
 opendocs/
 game_assets/
@@ -16,8 +24,11 @@ vendor/
 graphify-out/
 
 # Detached `npm run start:bg` process records (PID + log per game) — runtime, machine-local.
-.xm-run/
+.xenomoon-run/
 
 # Sub-agent handoff documents written under the plugin at runtime — machine-local, not shipped.
 plugin/.xenomoon/
+
+# Personal untracked hook extensions (sourced by .husky/post-commit when present).
+.husky/post-commit.local
 

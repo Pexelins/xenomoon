@@ -10,7 +10,7 @@ The framework moves all the time; consumers ride it with the `/sync-framework` c
 ```
 arthur0n/xenodot-forge        the GODOT product — engine, .tscn/.gd, alien-green identity
         │  fetch only · curated, domain-agnostic bits only · rebrand on the way in
-        │  (scripts/sync-upstream.sh + scripts/rebrand.mjs — see SYNC.md)
+        │  (the /sync-upstream command + scripts/rebrand.mjs — see SYNC.md)
         ▼
 arthur0n/xenomoon  (= this repo's `main`)   the agnostic FRAMEWORK — bronze "lunar" identity,
         │                                    domain-agnostic spine, CORE plugin/ + domain packs

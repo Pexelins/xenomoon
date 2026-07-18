@@ -1,7 +1,7 @@
 # Codex — optional, on-demand code review
 
 Xenomoon can use **OpenAI's Codex** as a second pair of eyes on code, for **both** the game
-(your project's source language) and the framework itself. It's **off by default**, gated, and
+(GDScript under your project) and the framework itself. It's **off by default**, gated, and
 lives **outside** the framework spine (`plugin/`) — nothing ships to games unless you turn it
 on. This mirrors the [Hermes](HERMES.md) pattern: a separate program with its **own model and
 its own billing** (your Anthropic plan does **not** cover it).
@@ -39,8 +39,9 @@ npm run codex:check     # verify: CLI present? logged in? plugin vendored? model
 `npm run codex:setup -- --reset` undoes it (disables the switch and removes the vendored
 clone). Pin the plugin to a tag with `--ref=<tag>`; skip prompts with `--yes`.
 
-You can also toggle it from **⚙ Settings → Codex** (an Enable checkbox + a **Test Codex**
-button that runs the same readiness probe).
+You can also do it all from **⚙ Settings → Codex**: an Enable checkbox, a **Set up Codex**
+button that runs `npm run codex:setup` for you (then restart the session to activate), and a
+**Test Codex** button that runs the same readiness probe.
 
 ### How it wires up
 

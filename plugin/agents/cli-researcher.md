@@ -5,6 +5,7 @@ model: sonnet
 tools: Read, Glob, Grep, Write, Bash, WebSearch, WebFetch, mcp__ui__form, mcp__ui__tasks, mcp__ui__ask
 skills:
   - caveman
+  - research-presenting
   - tasks-mcp
 effort: medium
 ---

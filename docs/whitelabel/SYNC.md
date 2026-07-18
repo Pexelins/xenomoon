@@ -39,25 +39,28 @@ upstream  https://github.com/arthur0n/xenodot-forge.git   the forked source — 
 
 ## Routine sync (pull upstream improvements in)
 
-```bash
-# 1. Fetch the source. (We never modify or push to it.)
-git fetch upstream
+Drive it with the **`/sync-upstream`** command (repo-local, analysis-driven — it replaced the
+old blind `scripts/sync-upstream.sh`). It fetches the source, shows you the incoming commits,
+merges on a throwaway `sync-upstream-main` branch, resolves each conflict by judgment (identity
+→ bronze OURS; engine/godot payload → drop; seam files → keep our seam + upstream behavior),
+re-drops the `SEAMS.md` divergences, re-runs the rebrand codemod, runs the agnostic gate +
+validate + onboarding, and STOPS. It never pushes and never touches the trunk.
 
-# 2. Merge upstream's changes into our xenomoon trunk.
-git checkout main
-git merge --no-ff upstream/main      # conflicts only where upstream touched a line we changed/rebranded
-
-# 3. Rebrand upstream's newly-arrived "xenodot", prove idempotent, validate.
-node scripts/rebrand.mjs
-git commit -am 'rebrand: re-flip merged upstream'
-node scripts/rebrand.mjs --check     # exits 0
-npm install && npm run test:onboarding   # 7/7
-
-# 4. Publish to OUR repo (the only allowed target).
-git push xenomoon main               # the pre-push hook blocks any push to a xenodot-forge repo
+```
+/sync-upstream                 # from = upstream, branch = main; --no-test to skip onboarding
 ```
 
-`scripts/sync-upstream.sh` automates steps 1–2 (+ the onboarding gate).
+Then you review the sync branch and advance + publish yourself:
+
+```bash
+git switch main && git merge --ff-only sync-upstream-main
+gh auth switch --user Pexelins        # publish goes out as Pexelins (repo-local cred pin)
+git push xenomoon main                # the ONLY allowed target; pre-push hook blocks xenodot-forge
+```
+
+Under the hood the command runs, in order: `git fetch upstream` → branch → `git merge --no-ff
+upstream/main` → resolve + re-drop divergences → `node scripts/rebrand.mjs` (+ `--check`) →
+`npm run check:agnostic` → `npm run validate` + `npm run test` + `npm run test:onboarding`.
 
 ## Conflicts
 

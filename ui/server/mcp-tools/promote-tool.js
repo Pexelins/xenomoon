@@ -25,7 +25,7 @@ export function makePromoteTool(send) {
       name: z
         .string()
         .describe(
-          "Its name as it lives game-local: a tools/ filename (e.g. profile-handler.js), a " +
+          "Its name as it lives game-local: a tools/ filename (e.g. profile_frame.gd), a " +
             ".claude/skills/<name> dir, or a .claude/agents/<name>(.md).",
         ),
       reason: z
@@ -36,10 +36,25 @@ export function makePromoteTool(send) {
       _by: z.string().optional().describe("internal — server-set; ignore"),
     },
     async (input) => {
-      const list = addPromotion(
-        { kind: input.kind, name: input.name, reason: input.reason, by: input._by },
-        new Date().toISOString(),
-      );
+      // canUseTool stamps `_by` for foreground callers; a backgrounded sub-agent is granted
+      // by the allow-subagent-ui-control hook (which bypasses canUseTool), so `_by` is absent
+      // here — attribute it to "background" (the bridge's own label).
+      let list;
+      try {
+        list = addPromotion(
+          {
+            kind: input.kind,
+            name: input.name,
+            reason: input.reason,
+            by: input._by ?? "background",
+          },
+          new Date().toISOString(),
+        );
+      } catch (e) {
+        return {
+          content: [{ type: "text", text: `promote: ${/** @type {Error} */ (e).message}` }],
+        };
+      }
       send({ type: "promotions", items: list });
       return {
         content: [
