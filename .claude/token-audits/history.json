@@ -35,6 +35,37 @@
         }
       ],
       "processNote": "07-11 log has ZERO result/usage events - spend invisible to meter; flag to framework"
+    },
+    {
+      "date": "2026-07-18",
+      "sessions": [
+        "2026-07-09T15-35-10-333Z",
+        "2026-07-08T18-46-58-006Z",
+        "2026-07-08T17-28-24-466Z"
+      ],
+      "covered": {
+        "input": 4868,
+        "output": 34006,
+        "cacheCreate": 308422,
+        "cacheRead": 3025164,
+        "cost": 27.884,
+        "total": 3372460,
+        "turns": 8,
+        "hitRate": 91,
+        "costPerSession": 9.2947,
+        "costPerTurn": 3.4855,
+        "incompleteSessions": []
+      },
+      "global": {
+        "cost": 488.7114,
+        "total": 26596971,
+        "hitRate": 95,
+        "sessionCount": 9,
+        "incompleteSessions": 1
+      },
+      "topOffender": "gh issue view full-thread dumps again (6 fetches, 69k chars, pre-fix session) - confirms landed issue-view-incremental",
+      "opportunities": [],
+      "processNote": "no new opportunity; 2 stubs (server snapshots, 0 LLM turns); costliest turns = cache-read replay over 96 api calls, inherent"
     }
   ]
 }

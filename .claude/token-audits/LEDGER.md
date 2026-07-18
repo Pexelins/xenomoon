@@ -22,8 +22,18 @@ Entry template:
 
 2026-07-11T18-21-47-706Z
 2026-07-18T09-42-40-297Z
+2026-07-08T17-28-24-466Z
+2026-07-08T18-46-58-006Z
+2026-07-09T15-35-10-333Z
 
 ## Audits (newest first)
+
+### 2026-07-18 (run 2) — sessions: 07-09T15-35, 07-08T18-46, 07-08T17-28
+
+- Offenders: same `gh issue view` full-thread pattern (6 fetches, 69k chars ≈ 17k tok) — session PREDATES the landed `issue-view-incremental` fix; re-confirms it, nothing new to file. Costliest turns $6.97 (1.59M cache-read) / $4.49 (935k) — one orchestrator turn replays context over ~96 API calls; inherent. 07-08 pair = 3.4KB server-state stubs, zero LLM turns.
+- Opportunity: none filed this run.
+- Marker watch: `policy:issue-view-trim` not expected in these pre-fix logs; tally it in the NEXT pipeline sessions.
+- Process note: stubs (sub-10KB, zero-turn) wasted 2 of 3 slots — scope now skips them and marks them covered directly (applied to command + plugin variant, framework `233fc3d`).
 
 ### 2026-07-18 — sessions: 07-11T18-21, 07-18T09-42
 
